@@ -4,7 +4,7 @@
 #    CSV(Excel形式:ダブルクォーテーションのエスケープは"")から
 #    行番号列番号インデックス付き値ファイルへの変換器
 #
-# Usage: csv2lfv.sh
+# Usage: csv2lfv.sh [CSV_file]
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Aug 4, 2012
 
