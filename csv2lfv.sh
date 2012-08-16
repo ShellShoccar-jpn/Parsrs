@@ -1,21 +1,23 @@
 #! /bin/sh
 #
 # csv2lfv.sh
-#    CSV(Excel形式:ダブルクォーテーションのエスケープは"")から
-#    行番号列番号インデックス付き値ファイルへの変換器
+#    CSV(Excel形式(RFC 4180):ダブルクォーテーションのエスケープは"")から
+#    行番号列番号インデックス付き値(line field indexed value)ファイルへの変換器
 #
 # Usage: csv2lfv.sh [CSV_file]
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Aug 4, 2012
+
 
 ACK=$(printf '\006')             # 1列1行化後に元々の改行を示すための印
 NAK=$(printf '\025')             # (未使用)
 ESC=$(printf '\033')             # ダブルクォーテーション*2のエスケープ印
 LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの
 
-if [ -f "$1" ]; then
+if [ $# -eq 1 ]; then\) -a \( \( -f "$1" \) -o \( -c "$1" \) \) ]; then
   file=$1
-elif [ "_$1" = "_" ]; then
+elif [ \( $# -eq 0 \) -o \( \( $# -eq 1 \) -a \( "_$1" = '_-' \) \) ]
+then
   file=/dev/stdin
 else
   echo "Usage : $0 [CSV_file]" > /dev/stderr
@@ -75,7 +77,6 @@ sed "s/$ESC/\"\"/g"                                                  |
 sed 's/^[[:space:]]*""[[:space:]]*$//'                               |
 # (3/3)""を単純な"に戻す                                             #
 sed 's/""/"/g'                                                       |
-tee 1f1l |
 #                                                                    #
 # === 先頭に行番号と列番号をつける ================================= #
 awk '                                                                \
