@@ -18,28 +18,26 @@ LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うため
 file=''
 for arg in "$@"; do
   if [ \( "_${arg#-dk}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    dk=$(echo -n "_${arg#-dk}"             |
-         sed 's/^_//'                      |
-         od -A n -t o1                     |
-         sed -e 's/[[:blank:]]*$//;'       |
-         sed -e 's/[[:blank:]]\{1,\}/\\/g' |
-         sed 's/\\012$//'                  )
+    dk=$(echo -n "_${arg#-dk}"           |
+         od -A n -t o1                   |
+         tr -d '\n'                      |
+         sed 's/[[:blank:]]*$//;'        |
+         sed 's/^[[:blank:]]\{1,\}137//' |
+         sed 's/[[:blank:]]\{1,\}/\\/g'  )
   elif [ \( "_${arg#-dv}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    dv=$(echo -n "_${arg#-dv}"             |
-         sed 's/^_//'                      |
-         od -A n -t o1                     |
-         tr -d '\n'                        |
-         sed -e 's/[[:blank:]]*$//;'       |
-         sed -e 's/[[:blank:]]\{1,\}/\\/g' |
-         sed 's/\\012$//'                  )
+    dv=$(echo -n "_${arg#-dv}"           |
+         od -A n -t o1                   |
+         tr -d '\n'                      |
+         sed 's/[[:blank:]]*$//;'        |
+         sed 's/^[[:blank:]]\{1,\}137//' |
+         sed 's/[[:blank:]]\{1,\}/\\/g'  )
   elif [ \( "_${arg#-lp}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    lp=$(echo -n "_${arg#-lp}"             |
-         sed 's/^_//'                      |
-         od -A n -t o1                     |
-         tr -d '\n'                        |
-         sed -e 's/[[:blank:]]*$//;'       |
-         sed -e 's/[[:blank:]]\{1,\}/\\/g' |
-         sed 's/\\012$//'                  )
+    lp=$(echo -n "_${arg#-lp}"           |
+         od -A n -t o1                   |
+         tr -d '\n'                      |
+         sed 's/[[:blank:]]*$//;'        |
+         sed 's/^[[:blank:]]\{1,\}137//' |
+         sed 's/[[:blank:]]\{1,\}/\\/g'  )
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
