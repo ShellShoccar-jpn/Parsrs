@@ -22,21 +22,21 @@ for arg in "$@"; do
          od -A n -t o1                 |
          tr -d '\n'                    |
          sed 's/^[[:blank:]]*137//'    |
-         sed 's/[[:blank:]]*$//;'      |
+         sed 's/[[:blank:]]*$//'       |
          sed 's/[[:blank:]]\{1,\}/\\/g')
   elif [ \( "_${arg#-dv}" != "_$arg" \) -a \( -z "$file" \) ]; then
     dv=$(echo -n "_${arg#-dv}"         |
          od -A n -t o1                 |
          tr -d '\n'                    |
          sed 's/^[[:blank:]]*137//'    |
-         sed 's/[[:blank:]]*$//;'      |
+         sed 's/[[:blank:]]*$//'       |
          sed 's/[[:blank:]]\{1,\}/\\/g')
   elif [ \( "_${arg#-lp}" != "_$arg" \) -a \( -z "$file" \) ]; then
     lp=$(echo -n "_${arg#-lp}"         |
          od -A n -t o1                 |
          tr -d '\n'                    |
          sed 's/^[[:blank:]]*137//'    |
-         sed 's/[[:blank:]]*$//;'      |
+         sed 's/[[:blank:]]*$//'       |
          sed 's/[[:blank:]]\{1,\}/\\/g')
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) \) ]; then
     file=$arg
