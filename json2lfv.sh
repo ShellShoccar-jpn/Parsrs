@@ -90,6 +90,7 @@ $0~/^"/{                                                             \
 grep -v '^[[:blank:]]*$'                                             |
 #                                                                    #
 # === 行頭の記号を見ながら状態遷移させて処理(strict版*1) =========== #
+# (*1 JSONの厳密なチェックを省略するならもっと簡素で高速にできる)    #
 awk -v "keykey_delim=$dk" -v "keyval_delim=$dv" -v "list_prefix=$lp" \
 '                                                                    \
 BEGIN {                                                              \
