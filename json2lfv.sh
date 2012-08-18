@@ -65,24 +65,7 @@ sed "s/\\\\\"/$ESC/g"                                                |
 sed "s/\(\"[^\"]*\"\)/$LF\1$LF/g"                                    |
 #                                                                    #
 # === DQ始まり以外の行の"{","}","[","]",":",","の前後に改行を挿入 == #
-awk '                                                                \
-$0~/^"/{                                                             \
-  print;                                                             \
-  next;                                                              \
-}                                                                    \
-{                                                                    \
-  split($0, letter, "");                                             \
-  for (i=1; i<=length(letter); i++) {                                \
-    test=letter[i];                                                  \
-    sub(/[\[\]{}:,]/, "", test);                                     \
-    if (length(test)) {                                              \
-      printf("%s", letter[i]);                                       \
-    } else {                                                         \
-      printf("\n%s\n", letter[i]);                                   \
-    }                                                                \
-  }                                                                  \
-}                                                                    \
-'                                                                    |
+sed "/^[^\"]/s/\([][{}:,]\)/$LF\1$LF/g"                              |
 #                                                                    #
 # === 無駄な空行は予め取り除いておく =============================== #
 grep -v '^[[:blank:]]*$'                                             |
