@@ -213,6 +213,8 @@ $0~/^,$/{                                                            \
   if (datacat_stack[stack_depth]=="l2") {                            \
     # 2a-1)データ種別スタック最上位を"l1:配列(値待ち)"に変更         \
     datacat_stack[stack_depth]="l1";                                 \
+    # 2a-2)キー名スタックに入っている配列番号を+1                    \
+    keyname_stack[stack_depth]++;                                    \
     next;                                                            \
   # 2b)"h3:ハッシュ(値取得済)"の場合                                 \
   } else if (datacat_stack[stack_depth]=="h3") {                     \
