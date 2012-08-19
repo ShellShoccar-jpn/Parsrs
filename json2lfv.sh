@@ -2,7 +2,7 @@
 #
 # json2lfv.sh
 #    JSONテキストから
-#    階層インデックス付き値(trrr indexed value)ファイルへの変換器
+#    階層インデックス付き値(tree indexed value)ファイルへの変換器
 #
 # Usage   : json2tiv.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
 # Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
