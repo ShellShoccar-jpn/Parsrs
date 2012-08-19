@@ -44,7 +44,7 @@ for arg in "$@"; do
     file=/dev/stdin
   else
     cat <<____USAGE > /dev/stderr
-Usage   : json2tiv.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
+Usage   : ${0##*/} [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
 Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
         : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)

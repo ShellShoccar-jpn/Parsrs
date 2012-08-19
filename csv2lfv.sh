@@ -20,7 +20,7 @@ elif [ \( $# -eq 0 \) -o \( \( $# -eq 1 \) -a \( "_$1" = '_-' \) \) ]
 then
   file=/dev/stdin
 else
-  echo "Usage : $0 [CSV_file]" > /dev/stderr
+  echo "Usage : ${0##*/} [CSV_file]" > /dev/stderr
   exit 1
 fi
 
