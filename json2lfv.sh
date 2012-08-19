@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# json2lfv.sh
+# json2tiv.sh
 #    JSONテキストから
 #    階層インデックス付き値(tree indexed value)ファイルへの変換器
 #
