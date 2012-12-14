@@ -1,15 +1,30 @@
 #! /bin/sh
 #
-# json2tiv.sh
+# jsonparser.sh
 #    JSONテキストから
-#    階層インデックス付き値(tree indexed value)ファイルへの変換器
+#    階層インデックス付き値(tree indexed value)テキスへの正規化
+#    (例)
+#     {"hoge":111,
+#      "foo" :["2\n2",
+#              {"bar" :"3 3",
+#               "fizz":{"bazz",444}
+#              },
+#              "\u5555"
+#             ]
+#     }
+#     ↓
+#     hoge 111
+#     foo:0 2\n2
+#     foo:1:bar 3 3
+#     foo:1:fizz:bazz 444
+#     foo:2 \u555
 #
-# Usage   : json2tiv.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
+# Usage   : jsonparser.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
 # Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
 #         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
 #         : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Aug 17, 2012
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Dec 15, 2012
 
 
 ESC=$(printf '\033')             # 値のダブルクォーテーション(DQ)エスケープ用
@@ -41,9 +56,9 @@ for arg in "$@"; do
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
-    file=/dev/stdin
+    file='-'
   else
-    cat <<____USAGE > /dev/stderr
+    cat <<____USAGE 1>&2
 Usage   : ${0##*/} [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
 Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")

@@ -1,12 +1,22 @@
 #! /bin/sh
 #
-# csv2lfv.sh
+# csvparser.sh
 #    CSV(Excel形式(RFC 4180):ダブルクォーテーションのエスケープは"")から
-#    行番号列番号インデックス付き値(line field indexed value)ファイルへの変換器
+#    行番号列番号インデックス付き値(line field indexed value)テキストへの正規化
+#    (例)
+#     aaa,"b""bb","c
+#     cc",d d
+#     "f,f"
+#     ↓
+#     1 1 aaa
+#     1 2 b"bb
+#     1 3 c\ncc
+#     1 4 d d
+#     2 1 f,f
 #
-# Usage: csv2lfv.sh [CSV_file]
+# Usage: csvparser.sh [CSV_file]
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Aug 4, 2012
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Dec 15, 2012
 
 
 ACK=$(printf '\006')             # 1列1行化後に元々の改行を示すための印
@@ -18,9 +28,9 @@ if [ \( $# -eq 1 \) -a \( \( -f "$1" \) -o \( -c "$1" \) \) ]; then
   file=$1
 elif [ \( $# -eq 0 \) -o \( \( $# -eq 1 \) -a \( "_$1" = '_-' \) \) ]
 then
-  file=/dev/stdin
+  file='-'
 else
-  echo "Usage : ${0##*/} [CSV_file]" > /dev/stderr
+  echo "Usage : ${0##*/} [CSV_file]" 1>&2
   exit 1
 fi
 
