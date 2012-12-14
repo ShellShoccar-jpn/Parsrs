@@ -18,6 +18,9 @@
 #     foo:1:bar 3 3
 #     foo:1:fizz:bazz 444
 #     foo:2 \u555
+#     ◇よって grep '^foo:1:bar ' | sed 's/^[^ ]* //' などと
+#       後ろ grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
+#       さらにこれを jsonunesc.sh にパイプすれば、完全な値として取り出せる。
 #
 # Usage   : jsonparser.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
 # Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")

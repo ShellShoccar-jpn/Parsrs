@@ -13,6 +13,8 @@
 #     1 3 c\ncc
 #     1 4 d d
 #     2 1 f,f
+#     ◇よって grep '^1 3 ' | sed 's/^[^ ]* [^ ]* //' などと
+#       後ろに grep&sed をパイプで繋げれば目的の行・列の値が得られる。
 #
 # Usage: csvparser.sh [CSV_file]
 #
