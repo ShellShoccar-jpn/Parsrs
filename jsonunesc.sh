@@ -38,44 +38,53 @@ sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LF"'\1/'                           |
 awk '                                                                \
 BEGIN {                                                              \
   OFS="";                                                            \
-  for(i=255;i>=0;i--)                                                \
+  for(i=255;i>=0;i--) {                                              \
     s=sprintf("%c",i);                                               \
-    bhex2chr[sprintf("%x",i)]=s;                                     \
-    bhex2chr[sprintf("%X",i)]=s;                                     \
-    bhex2int[sprintf("%x",i)]=i;                                     \
-    bhex2int[sprintf("%X",i)]=i;                                     \
+    bhex2chr[sprintf("%02x",i)]=s;                                   \
+    bhex2chr[sprintf("%02X",i)]=s;                                   \
+    bhex2int[sprintf("%02x",i)]=i;                                   \
+    bhex2int[sprintf("%02X",i)]=i;                                   \
   }                                                                  \
-  #for(i=65535;i>=0;i--)           # もし高速なら                    \
-  #  whex2int[sprintf("%x",i)]=i;  # bhex2intの代わりに              \
-  #  whex2int[sprintf("%X",i)]=i;  # こちらの連想配列を用いる        \
+  #for(i=65535;i>=0;i--) {           # もし高速なら                  \
+  #  whex2int[sprintf("%02x",i)]=i;  # bhex2intの代わりに            \
+  #  whex2int[sprintf("%02X",i)]=i;  # こちらの連想配列を用いる      \
   #}                                                                 \
 }                                                                    \
 /^\\u000[Aa]/ {                                                      \
-  print "\\n", substr($0,7));                                        \
+  print "\\n", substr($0,7);                                         \
+  next;                                                              \
 }                                                                    \
 /^\\u000[Dd]/ {                                                      \
-  print "\\r", substr($0,7));                                        \
+  print "\\r", substr($0,7);                                         \
+  next;                                                              \
 }                                                                    \
 /^\\u005[Cc]/ {                                                      \
-  print "\\\\", substr($0,7));                                       \
+  print "\\\\", substr($0,7);                                        \
+  next;                                                              \
 }                                                                    \
 /^\\u00[0-7][0-9a-fA-F]/ {                                           \
-  print bhex2chr[substr($0,5,2)], substr($0,7));                     \
+  print bhex2chr[substr($0,5,2)], substr($0,7);                      \
+  next;                                                              \
 }                                                                    \
 /^\\u0[0-7][0-9a-fA-F][0-9a-fA-F]/ {                                 \
   #i=whex2int[substr($0,3,4)];                                       \
   i=bhex2int[substr($0,3,2)]*256+bhex2int[substr($0,5,2)];           \
   printf("%c",192+int(i/64));                                        \
-  printf("%c",128+    i\64 );                                        \
+  printf("%c",128+    i%64 );                                        \
   print substr($0,7);                                                \
+  next;                                                              \
 }                                                                    \
 /^\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]/ {                 \
   #i=whex2int[substr($0,3,4)];                                       \
   i=bhex2int[substr($0,3,2)]*256+bhex2int[substr($0,5,2)];           \
   printf("%c",224+int( i/4096    ));                                 \
-  printf("%c",128+int((i\4096)/64));                                 \
-  printf("%c",128+i\64            );                                 \
+  printf("%c",128+int((i%4096)/64));                                 \
+  printf("%c",128+i%64            );                                 \
   print substr($0,7);                                                \
+  next;                                                              \
+}                                                                    \
+{                                                                    \
+  print;                                                             \
 }                                                                    \
 '                                                                    |
 # === Unicodeエスケープ文字列前に挿入していた改行を削除 ============ #
