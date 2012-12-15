@@ -42,13 +42,13 @@ BEGIN {                                                              \
     s=sprintf("%c",i);                                               \
     bhex2chr[sprintf("%02x",i)]=s;                                   \
     bhex2chr[sprintf("%02X",i)]=s;                                   \
-    bhex2int[sprintf("%02x",i)]=i;                                   \
-    bhex2int[sprintf("%02X",i)]=i;                                   \
+    #bhex2int[sprintf("%02x",i)]=i;                                  \
+    #bhex2int[sprintf("%02X",i)]=i;                                  \
   }                                                                  \
-  #for(i=65535;i>=0;i--) {           # もし高速なら                  \
-  #  whex2int[sprintf("%02x",i)]=i;  # bhex2intの代わりに            \
-  #  whex2int[sprintf("%02X",i)]=i;  # こちらの連想配列を用いる      \
-  #}                                                                 \
+  for(i=65535;i>=0;i--) {          # 0000～FFFFの16進値を10進値に変  \
+    whex2int[sprintf("%02x",i)]=i; # 換する際、00～FFまでの連想配列  \
+    whex2int[sprintf("%02X",i)]=i; # 256個を作って2桁ずつ2度使うより \
+  }                                # こちらを1度使う方が若干速かった \
 }                                                                    \
 /^\\u000[Aa]/ {                                                      \
   print "\\n", substr($0,7);                                         \
@@ -67,16 +67,16 @@ BEGIN {                                                              \
   next;                                                              \
 }                                                                    \
 /^\\u0[0-7][0-9a-fA-F][0-9a-fA-F]/ {                                 \
-  #i=whex2int[substr($0,3,4)];                                       \
-  i=bhex2int[substr($0,3,2)]*256+bhex2int[substr($0,5,2)];           \
+  i=whex2int[substr($0,3,4)];                                        \
+  #i=bhex2int[substr($0,3,2)]*256+bhex2int[substr($0,5,2)];          \
   printf("%c",192+int(i/64));                                        \
   printf("%c",128+    i%64 );                                        \
   print substr($0,7);                                                \
   next;                                                              \
 }                                                                    \
 /^\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]/ {                 \
-  #i=whex2int[substr($0,3,4)];                                       \
-  i=bhex2int[substr($0,3,2)]*256+bhex2int[substr($0,5,2)];           \
+  i=whex2int[substr($0,3,4)];                                        \
+  #i=bhex2int[substr($0,3,2)]*256+bhex2int[substr($0,5,2)];          \
   printf("%c",224+int( i/4096    ));                                 \
   printf("%c",128+int((i%4096)/64));                                 \
   printf("%c",128+     i%64       );                                 \
