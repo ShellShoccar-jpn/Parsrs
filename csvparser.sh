@@ -21,12 +21,12 @@
 #
 # Usage: csvparser.sh [CSV_file]
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Dec 15, 2012
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 5, 2013
 
 
 ACK=$(printf '\006')             # 1列1行化後に元々の改行を示すための印
 NAK=$(printf '\025')             # (未使用)
-SYN=$(printf '\034')             # ダブルクォーテーション*2のエスケープ印
+SYN=$(printf '\026')             # ダブルクォーテーション*2のエスケープ印
 LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの
 
 if [ \( $# -eq 1 \) -a \( \( -f "$1" \) -o \( -c "$1" \) \) ]; then

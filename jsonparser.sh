@@ -27,10 +27,10 @@
 #         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
 #         : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Dec 15, 2012
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 5, 2013
 
 
-SYN=$(printf '\034')             # 値のダブルクォーテーション(DQ)エスケープ用
+SYN=$(printf '\026')             # 値のダブルクォーテーション(DQ)エスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
 
 file=''
@@ -111,7 +111,7 @@ BEGIN {                                                              \
   # エラー終了検出変数を初期化                                       \
   _assert_exit=0;                                                    \
   # 同期信号キャラクタ(事前にエスケープしていたDQを元に戻すため)     \
-  SYN=sprintf("\034");                                               \
+  SYN=sprintf("\026");                                               \
 }                                                                    \
 # "{"行の場合                                                        \
 $0~/^{$/{                                                            \
