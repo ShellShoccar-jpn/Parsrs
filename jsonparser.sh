@@ -27,7 +27,7 @@
 #         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
 #         : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 5, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 13, 2013
 
 
 SYN=$(printf '\026')             # 値のダブルクォーテーション(DQ)エスケープ用
@@ -70,7 +70,7 @@ ____USAGE
     exit 1
   fi
 done
-[ -z "$file" ] && file='/dev/stdin'
+[ -z "$file" ] && file='-'
 
 
 # === データの流し込み ============================================= #
