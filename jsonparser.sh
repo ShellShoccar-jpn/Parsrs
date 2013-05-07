@@ -56,7 +56,7 @@ for arg in "$@"; do
          sed 's/^[[:blank:]]*137//'    |
          sed 's/[[:blank:]]*$//'       |
          sed 's/[[:blank:]]\{1,\}/\\/g')
-  elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) \) ]; then
+  elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
     file='-'
