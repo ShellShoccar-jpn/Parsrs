@@ -10,12 +10,12 @@
 #       いひひ
 #     </foo>
 #     ↓
-#     foo/bar>hoge ほげ
-#     foo/bar>piyo ぴよ
-#     foo/bar/br 
-#     foo/bar えへへ
-#     foo \n  あはは\n  \n  いひひ\n
-#     ◇第1列はDOMパス名(区切りは"/"、ただし属性名との区切りは">")
+#     /foo/bar/@hoge ほげ
+#     /foo/bar/@piyo ぴよ
+#     /foo/bar/br 
+#     /foo/bar えへへ
+#     /foo \n  あはは\n  \n  いひひ\n
+#     ◇第1列はDOMパス名(XPath形式:区切りは"/"、ただし属性名手前に"@")
 #     ◇第2列(最初のスペース文字の次以降全部)はそのパスの持つ値(空値の場合あり)
 #     ◇よって grep '^foo/bar ' | sed 's/^[^ ]* //' などと
 #       後ろに grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
@@ -267,9 +267,9 @@ awk '                                                                          \
   }                                                                            \
 '                                                                              |
 # === タグ,属性を絶対パス化し、タグ内文字列をタグの値として同行に記す ======== #
-# ・次のような形式になる                                                       #
-#    PATH/TO/TAG_NAME VALUE                                                    #
-#    PATH/TO/TAG_NNAME>PROPERTY_NAME VALUE                                     #
+# ・次のような形式になる(XPath形式)                                            #
+#    /PATH/TO/TAG_NAME VALUE                                                   #
+#    /PATH/TO/TAG_NNAME/@PROPERTY_NAME VALUE                                   #
 # ・VALUEが空の場合でも手前に半角スペースが1個入る                             #
 awk '                                                                          \
   BEGIN {                                                                      \
@@ -290,8 +290,7 @@ awk '                                                                          \
           # 1-1.タグ終了行だった場合                                           \
           #     現在の階層の値を付けながら値を表示                             \
           #     一階層出る                                                     \
-          print tagpath[1];                                                    \
-          for (i=2; i<=currentdepth; i++) {                                    \
+          for (i=1; i<=currentdepth; i++) {                                    \
             print "/", tagpath[i];                                             \
           }                                                                    \
           print " ";                                                           \
@@ -314,18 +313,12 @@ awk '                                                                          \
         }                                                                      \
       } else if (headofline == Pro) {                                          \
         # 2.属性行だった場合                                                   \
-        if (currentdepth > 0) {                                                \
-          print tagpath[1];                                                    \
-          delim = "/";                                                         \
-        } else {                                                               \
-          delim = "";                                                          \
-        }                                                                      \
-        for (i=2; i<=currentdepth; i++) {                                      \
+        for (i=1; i<=currentdepth; i++) {                                      \
           print "/", tagpath[i];                                               \
         }                                                                      \
         s = substr(line,2);                                                    \
-        sub(/'"$PRO"'/, ">", s);                                               \
-        print delim, s, LF;                                                    \
+        sub(/'"$PRO"'/, "/@", s);                                              \
+        print "/", s, LF;                                                      \
       } else {                                                                 \
         # 3.その他の行だった場合                                               \
         #   現在の階層の値変数にその行を追加                                   \
