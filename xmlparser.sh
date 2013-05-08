@@ -28,6 +28,9 @@
 #      を与えられた場合は正常に正規化されることを保証できない。
 #    ・HTMLも扱えるが、改行コードを\nにするなどしてXMLに準拠させておくこと
 #
+# Usage   : ${0##*/} [-lf<str>] [XML_file]
+# Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
+#
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 8, 2013
 
 SCT=$(printf '\021') # タグ開始端(候補)エスケープ用文字
