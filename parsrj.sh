@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# jsonparser.sh
+# parsrj.sh
 #    JSONテキストから
 #    階層インデックス付き値(tree indexed value)テキスへの正規化
 #    (例)
@@ -20,9 +20,9 @@
 #     foo:2 \u5555
 #     ◇よって grep '^foo:1:bar ' | sed 's/^[^ ]* //' などと
 #       後ろ grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
-#       さらにこれを jsonunesc.sh にパイプすれば、完全な値として取り出せる。
+#       さらにこれを unescj.sh にパイプすれば、完全な値として取り出せる。
 #
-# Usage   : jsonparser.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
+# Usage   : parsrj.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
 # Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
 #         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
 #         : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)

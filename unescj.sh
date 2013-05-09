@@ -1,12 +1,12 @@
 #! /bin/sh
 #
-# jsonunesc.sh
+# unsecj.sh
 #    JSONによるエスケープ文字を含む文字列をアンエスケープする
 #    ・Unicodeエスケープが含まれている場合はその部分をUTF-8化する
 #    ・このスクリプトはJSONの値部分のみの処理を想定している
 #    ・JSON文字列のパース(キーと値の分離)はjsonparser.shで予め行うこと
 #
-# Usage: jsonunesc.sh [JSON_value_textfile]
+# Usage: unsecj.sh [JSON_value_textfile]
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Dec 15, 2012
 

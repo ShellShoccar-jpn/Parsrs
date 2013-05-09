@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# csvparser.sh
+# parsrc.sh
 #    CSV(Excel形式(RFC 4180):ダブルクォーテーションのエスケープは"")から
 #    行番号列番号インデックス付き値(line field indexed value)テキストへの正規化
 #    (例)
@@ -19,7 +19,7 @@
 #         sed 's/\\n/\<LF>/g' (←"<LF>"は実際には改行を表す)
 #       にパイプすれば、元データに改行を含む場合でも完全な値として取り出せる。
 #
-# Usage: csvparser.sh [CSV_file]
+# Usage: parsrc.sh [CSV_file]
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 5, 2013
 

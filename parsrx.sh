@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# xmlparser.sh
+# parsrx.sh
 #    XMLテキストから
 #    階層インデックス付き値(tree indexed value)テキスへの正規化
 #    (例)
@@ -31,10 +31,11 @@
 #      - meta,link,br,img,input,hr,embed,area,base,col,keygen,param,source など
 #        閉じタグの無いタグは単独で閉じさせる
 #
-# Usage   : ${0##*/} [-lf<str>] [XML_file]
-# Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
+# Usage   : parsrx.sh [-c] [-lf<str>] [XML_file]
+# Options : -c  はタグ内に含まれる子タグの可視化
+#           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 8, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 9, 2013
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
@@ -55,6 +56,7 @@ N=$( printf '\\\012_') # sedコマンド用の改行(エスケープ用ではな
 N=${N%_}               #
 
 optlf=''
+pring_childtags=''
 file=''
 for arg in "$@"; do
   if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
@@ -65,14 +67,22 @@ for arg in "$@"; do
             sed 's/&/\\\&/g'       |
             sed 's/\//\\\//g'      )
     optlf=${optlf%_}
+  elif [ \( "_${arg}" = '_-c' \) -a \( -z "$file" \) ]; then
+    # -cオプションが付いた場合、一番最後のAWKにこのコードを挿入する
+    pring_childtags='
+      childtag = "<" tagpath[currentdepth] "/>";
+      currentpathitems++;
+      tagvals[currentdepth "," currentpathitems] = childtag;
+    '
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
     file='-'
   else
     cat <<____USAGE 1>&2
-Usage   : ${0##*/} [-lf<str>] [XML_file]
-Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
+Usage   : ${0##*/} [-c] [-lf<str>] [XML_file]
+Options : -c  はタグ内に含まれる子タグの可視化
+          -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
 ____USAGE
     exit 1
   fi
@@ -306,6 +316,7 @@ awk '                                                                          \
         } else {                                                               \
           # 1-2.タグ開始行だった場合                                           \
           #     一階層入る                                                     \
+          '"$pring_childtags"' # タグ内の値文字列生成時に内包する子タグを含める\
           tagvals[currentdepth] = currentpathitems;                            \
           currentpathitems = 0;                                                \
           currentdepth++;                                                      \
