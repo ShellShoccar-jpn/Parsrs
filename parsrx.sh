@@ -72,7 +72,7 @@ for arg in "$@"; do
     # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
     unoptc=''
   elif [ \( "_${arg}" = '_-n' \) -a \( -z "$file" \) ]; then
-    # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+    # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
     unoptn=''
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
