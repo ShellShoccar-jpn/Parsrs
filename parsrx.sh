@@ -59,6 +59,7 @@ optlf=''
 unoptc='#'
 unoptn='#'
 file=''
+printhelp=0
 for arg in "$@"; do
   if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
     optlf=$(echo -n "_${arg#-lf}_" |
@@ -68,26 +69,39 @@ for arg in "$@"; do
             sed 's/&/\\\&/g'       |
             sed 's/\//\\\//g'      )
     optlf=${optlf%_}
-  elif [ \( "_${arg}" = '_-c' \) -a \( -z "$file" \) ]; then
-    # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-    unoptc=''
-  elif [ \( "_${arg}" = '_-n' \) -a \( -z "$file" \) ]; then
-    # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-    unoptn=''
+  elif [ \( "_${arg#-}" != "_$arg" \) -a \( -n "_${arg#-}" \) \
+         -a \( -z "$file" \)                                  ]
+  then
+    for opt in $(echo "_${arg#-}" | sed 's/^_//;s/\(.\)/\1 /g'); do
+      case "$opt" in
+        c) # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+           unoptc=''
+           ;;
+        n) # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+           unoptn=''
+           ;;
+        *)
+           printhelp=1
+           ;;
+      esac
+    done
+  elif [ \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
+    file='-'
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
-  elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
-    file='-'
   else
-    cat <<____USAGE 1>&2
+    printhelp=1;
+  fi
+done
+if [ $printhelp -ne 0 ]; then
+  cat <<__USAGE 1>&2
 Usage   : ${0##*/} [-c] [-n] [-lf<str>] [XML_file]
 Options : -c  はタグ内に含まれる子タグの可視化
           -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
-____USAGE
-    exit 1
-  fi
-done
+__USAGE
+  exit 1
+fi
 [ -z "$optlf" ] && optlf='\\n'
 [ -z "$file"  ] && file='-'
 
