@@ -31,11 +31,12 @@
 #      - meta,link,br,img,input,hr,embed,area,base,col,keygen,param,source など
 #        閉じタグの無いタグは単独で閉じさせる
 #
-# Usage   : parsrx.sh [-c] [-lf<str>] [XML_file]
+# Usage   : parsrx.sh [-c] [-n] [-lf<str>] [XML_file]
 # Options : -c  はタグ内に含まれる子タグの可視化
+#           -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
 #           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 9, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 12, 2013
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
@@ -51,12 +52,12 @@ LT=$( printf '\030') # 引用符内"<"のエスケープ用文字
 SLS=$(printf '\031') # 引用符内"/"のエスケープ用文字
 LF=$( printf '\177') # 改行(タグ内の引用符外は除く)のエスケープ用文字
 
-T=$( printf '\011')    # タブ(エスケープ用ではない)
-N=$( printf '\\\012_') # sedコマンド用の改行(エスケープ用ではない)
-N=${N%_}               #
+T=$( printf '\011')             # タブ(エスケープ用ではない)
+N=$( printf '\\\012_');N=${N%_} # sedコマンド用の改行(エスケープ用ではない)
 
 optlf=''
-pring_childtags=''
+unoptc='#'
+unoptn='#'
 file=''
 for arg in "$@"; do
   if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
@@ -68,20 +69,20 @@ for arg in "$@"; do
             sed 's/\//\\\//g'      )
     optlf=${optlf%_}
   elif [ \( "_${arg}" = '_-c' \) -a \( -z "$file" \) ]; then
-    # -cオプションが付いた場合、一番最後のAWKにこのコードを挿入する
-    pring_childtags='
-      childtag = "<" tagpath[currentdepth] "/>";
-      currentpathitems++;
-      tagvals[currentdepth "," currentpathitems] = childtag;
-    '
+    # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+    unoptc=''
+  elif [ \( "_${arg}" = '_-n' \) -a \( -z "$file" \) ]; then
+    # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+    unoptn=''
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
     file='-'
   else
     cat <<____USAGE 1>&2
-Usage   : ${0##*/} [-c] [-lf<str>] [XML_file]
+Usage   : ${0##*/} [-c] [-n] [-lf<str>] [XML_file]
 Options : -c  はタグ内に含まれる子タグの可視化
+          -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
 ____USAGE
     exit 1
@@ -290,6 +291,8 @@ awk '                                                                          \
     Pro = "'"$PRO"'"; # 属性行識別子として使う文字..消す                       \
     split("", tagpath); # K:階層番号、V:パス名                                 \
     split("", tagvals); # (a)K:階層深度 V:要素数、(b)K:深度,番号 V:文字列      \
+    split("", tagbros); # K:階層番号、V:"/所属タグの名前/名前/名前/…"         \
+    split("", tagrept); # K:"階層番号/タグ名"、V:出現回数                      \
     currentdepth     =  0; # 現在いる階層の深度                                \
     currentpathitems =  0; # 現在のフルパスが持っている文字列の個数            \
     while (getline line) {                                                     \
@@ -301,7 +304,9 @@ awk '                                                                          \
           #     現在の階層の値を付けながら値を表示                             \
           #     一階層出る                                                     \
           for (i=1; i<=currentdepth; i++) {                                    \
-            print "/", tagpath[i];                                             \
+            s =  tagpath[i];                                                   \
+            print "/", s;                                                      \
+            '"$unoptn"'print "[", tagrept[i "/" s], "]";                       \
           }                                                                    \
           print " ";                                                           \
           for (i=1; i<=currentpathitems; i++) {                                \
@@ -310,26 +315,59 @@ awk '                                                                          \
           }                                                                    \
           print LF;                                                            \
           delete tagpath[currentdepth];                                        \
+          '"$unoptn"'i = currentdepth + 1;                                     \
+          '"$unoptn"'if (i in tagbros) {                                       \
+          '"$unoptn"'  split(substr(tagbros[i],2), array, "/");                \
+          '"$unoptn"'  for (j in array) {                                      \
+          '"$unoptn"'    delete tagrept[i "/" array[j]];                       \
+          '"$unoptn"'  }                                                       \
+          '"$unoptn"'  split("", array);                                       \
+          '"$unoptn"'}                                                         \
           currentdepth--;                                                      \
           currentpathitems = tagvals[currentdepth];                            \
           delete tagvals[currentdepth];                                        \
         } else {                                                               \
           # 1-2.タグ開始行だった場合                                           \
           #     一階層入る                                                     \
-          '"$pring_childtags"' # タグ内の値文字列生成時に内包する子タグを含める\
+          currenttagname = substr(line,2);                                     \
+          '"$unoptc"'childtag = "<" currenttagname "/>";                       \
+          '"$unoptc"'currentpathitems++;                                       \
+          '"$unoptc"'tagvals[currentdepth "," currentpathitems] = childtag;    \
           tagvals[currentdepth] = currentpathitems;                            \
           currentpathitems = 0;                                                \
           currentdepth++;                                                      \
-          tagpath[currentdepth] = substr(line,2);                              \
+          tagpath[currentdepth] = currenttagname;                              \
+          '"$unoptn"'if (currentdepth in tagbros) {                            \
+          '"$unoptn"'  if (currentdepth "/" currenttagname in tagrept) {       \
+          '"$unoptn"'    tagrept[currentdepth "/" currenttagname]++;           \
+          '"$unoptn"'  } else {                                                \
+          '"$unoptn"'    s = tagbros[currentdepth] "/" currenttagname;         \
+          '"$unoptn"'    tagbros[currentdepth] = s;                            \
+          '"$unoptn"'    tagrept[currentdepth "/" currenttagname] = 1;         \
+          '"$unoptn"'  }                                                       \
+          '"$unoptn"'} else {                                                  \
+          '"$unoptn"'  tagbros[currentdepth] = "/" currenttagname;             \
+          '"$unoptn"'  tagrept[currentdepth "/" currenttagname] = 1;           \
+          '"$unoptn"'}                                                         \
         }                                                                      \
       } else if (headofline == Pro) {                                          \
         # 2.属性行だった場合                                                   \
         for (i=1; i<=currentdepth; i++) {                                      \
-          print "/", tagpath[i];                                               \
+          s =  tagpath[i];                                                     \
+          print "/", s;                                                        \
+          '"$unoptn"'print "[", tagrept[i "/" s], "]";                         \
         }                                                                      \
         s = substr(line,2);                                                    \
-        sub(/'"$PRO"'/, "/@", s);                                              \
-        print "/", s, LF;                                                      \
+        i = index(s, "'"$PRO"'");                                              \
+        currenttagname = substr(s, 1, i-1);                                    \
+        print "/", currenttagname;                                             \
+        '"$unoptn"'j = currentdepth + 1;                                       \
+        '"$unoptn"'if ((j "/" currenttagname) in tagrept) {                    \
+        '"$unoptn"'  print "[", (tagrept[j "/" currenttagname]+1), "]";        \
+        '"$unoptn"'} else {                                                    \
+        '"$unoptn"'  print "[1]";                                              \
+        '"$unoptn"'}                                                           \
+        print "/@", substr(s,i+1), LF;                                         \
       } else {                                                                 \
         # 3.その他の行だった場合                                               \
         #   現在の階層の値変数にその行を追加                                   \
