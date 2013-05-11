@@ -13,63 +13,92 @@
 #             ]
 #     }
 #     ↓
-#     hoge 111
-#     foo:0 2\n2
-#     foo:1:bar 3 3
-#     foo:1:fizz:bazz 444
-#     foo:2 \u5555
-#     ◇よって grep '^foo:1:bar ' | sed 's/^[^ ]* //' などと
+#     $.hoge 111
+#     $.foo[0] 2\n2
+#     $.foo[1].bar 3 3
+#     $.foo[1].fizz.bazz 444
+#     $.foo[2] \u5555
+#     ◇よって grep '^\$foo[1].bar ' | sed 's/^[^ ]* //' などと
 #       後ろ grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
 #       さらにこれを unescj.sh にパイプすれば、完全な値として取り出せる。
 #
-# Usage   : parsrj.sh [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
-# Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
-#         : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
-#         : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)
-#
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 13, 2013
+# Usage   : parsrj.sh [JSON_file]           ←JSONPath表現
+#         : parsrj.sh --xpath [JSON_file]   ←XPath表現(*1)   ↓カスタム表現
+# Usage   : parsrj.sh [-rt<str>] [-kd<str>] [-lp<str>] [-ls<str>] [JSON_file]
+# Options : -rt はルート階層シンボル文字列指定(デフォルトは"$")
+#         : -kd は各階層のキー名文字列間のデリミター指定(デフォルトは".")
+#         : -lp は配列キーのプレフィックス文字列指定(デフォルトは"[")
+#         : -ls は配列キーのサフィックス文字列指定(デフォルトは"]")
+#         : --xpathは階層表現をXPath形式(*1)にする(-rt -kd/ -lp/ -ls指定と同等)
+#           *1 但し配列の番号は0始まり、かつ"hoge[n]"ではなく"hoge/n"として表記
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 11, 2013
 
 
-SYN=$(printf '\026')             # 値のダブルクォーテーション(DQ)エスケープ用
+DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
 
 file=''
+rt='$'
+kd='.'
+lp='['
+ls=']'
 for arg in "$@"; do
-  if [ \( "_${arg#-dk}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    dk=$(echo -n "_${arg#-dk}"         |
-         od -A n -t o1                 |
-         tr -d '\n'                    |
-         sed 's/^[[:blank:]]*137//'    |
-         sed 's/[[:blank:]]*$//'       |
-         sed 's/[[:blank:]]\{1,\}/\\/g')
-  elif [ \( "_${arg#-dv}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    dv=$(echo -n "_${arg#-dv}"         |
-         od -A n -t o1                 |
-         tr -d '\n'                    |
-         sed 's/^[[:blank:]]*137//'    |
-         sed 's/[[:blank:]]*$//'       |
-         sed 's/[[:blank:]]\{1,\}/\\/g')
+  if [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    rt=${arg#-rt}
+  elif [ \( "_${arg#-kd}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    kd=${arg#-kd}
   elif [ \( "_${arg#-lp}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    lp=$(echo -n "_${arg#-lp}"         |
-         od -A n -t o1                 |
-         tr -d '\n'                    |
-         sed 's/^[[:blank:]]*137//'    |
-         sed 's/[[:blank:]]*$//'       |
-         sed 's/[[:blank:]]\{1,\}/\\/g')
+    lp=${arg#-lp}
+  elif [ \( "_${arg#-ls}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    ls=${arg#-ls}
+  elif [ \( "_$arg" = '_--xpath' \) -a \( -z "$file" \) ]; then
+    rt=''
+    kd='/'
+    lp='/'
+    ls=''
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
     file='-'
   else
     cat <<____USAGE 1>&2
-Usage   : ${0##*/} [-dk<char>] [-dv<char>] [-lp<char>] [JSON_file]
-Options : -dk は各階層のキー名文字列間のデリミター指定(デフォルトは":")
-        : -dv はキー名インデックスと値の間のデリミター指定(デフォルトは" ")
-        : -lp は配列キーのプレフィックス文字列指定(デフォルトは空文字)
+Usage   : ${0##*/} [JSON_file]           ←JSONPath表現
+        : ${0##*/} --xpath [JSON_file]   ←XPath表現(*1)   ↓カスタム表現
+        : ${0##*/} [-rt<str>] [-kd<str>] [-lp<str>] [-ls<str>] [JSON_file]
+Options : -rt はルート階層シンボル文字列指定(デフォルトは"$")
+        : -kd は各階層のキー名文字列間のデリミター指定(デフォルトは".")
+        : -lp は配列キーのプレフィックス文字列指定(デフォルトは"[")
+        : -ls は配列キーのサフィックス文字列指定(デフォルトは"]")
+        : --xpathは階層表現をXPath形式(*1)にする(-rt -kd/ -lp/ -ls指定と同等)
+          *1 但し配列の番号は0始まり、かつ"hoge[n]"ではなく"hoge/n"として表記
 ____USAGE
     exit 1
   fi
 done
+rt=$(echo -n "_$rt"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+kd=$(echo -n "_$kd"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+lp=$(echo -n "_$lp"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+ls=$(echo -n "_$ls"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
 [ -z "$file" ] && file='-'
 
 
@@ -77,7 +106,7 @@ done
 cat "$file"                                                          |
 #                                                                    #
 # === 値としてのダブルクォーテーション(DQ)をエスケープ ============= #
-sed "s/\\\\\"/$SYN/g"                                                |
+sed "s/\\\\\"/$DQ/g"                                                 |
 #                                                                    #
 # === DQ始まり～DQ終わりの最小マッチングの前後に改行を入れる ======= #
 sed "s/\(\"[^\"]*\"\)/$LF\1$LF/g"                                    |
@@ -91,15 +120,13 @@ grep -v '^[[:blank:]]*$'                                             |
 # === 行頭の記号を見ながら状態遷移させて処理(*1,strict版*2) ======== #
 # (*1 エスケープしたDQもここで元に戻す)                              #
 # (*2 JSONの厳密なチェックを省略するならもっと簡素で高速にできる)    #
-awk -v "keykey_delim=$dk" -v "keyval_delim=$dv" -v "list_prefix=$lp" \
-'                                                                    \
+awk '                                                                \
 BEGIN {                                                              \
-  # 配列番号としてのキーのプレフィックス文字に指定があればそれにする \
-  list_prefix=(length(list_prefix))?sprintf(list_prefix):"";         \
-  # キー間のデリミター文字に指定があればそれにする                   \
-  keykey_delim=(length(keykey_delim))?sprintf(keykey_delim):":";     \
-  # キー-値間のデリミター文字に指定があればそれにする                \
-  keyval_delim=(length(keyval_delim))?sprintf(keyval_delim):" ";     \
+  # 階層表現文字列をシェル変数に基づいて定義する                     \
+  root_symbol=sprintf("'"$rt"'");                                    \
+  key_delimit=sprintf("'"$kd"'");                                    \
+  list_prefix=sprintf("'"$lp"'");                                    \
+  list_suffix=sprintf("'"$ls"'");                                    \
   # データ種別スタックの初期化                                       \
   datacat_stack[0]="";                                               \
   delete datacat_stack[0]                                            \
@@ -111,7 +138,12 @@ BEGIN {                                                              \
   # エラー終了検出変数を初期化                                       \
   _assert_exit=0;                                                    \
   # 同期信号キャラクタ(事前にエスケープしていたDQを元に戻すため)     \
-  SYN=sprintf("\026");                                               \
+  DQ=sprintf("\026");                                                \
+  # 改行キャラクター                                                 \
+  LF =sprintf("\n");                                                 \
+  # print文の自動フィールドセパレーター挿入と文末自動改行をなくす    \
+  OFS="";                                                            \
+  ORS="";                                                            \
 }                                                                    \
 # "{"行の場合                                                        \
 $0~/^{$/{                                                            \
@@ -256,7 +288,7 @@ $0~/^,$/{                                                            \
   # 2)DQ囲みになっている場合は予めそれを除去しておく                 \
   value=(match($0,/^".*"$/))?substr($0,2,RLENGTH-2):$0;              \
   # 3)事前にエスケープしていたDQをここで元に戻す                     \
-  gsub(SYN,"\\\"",value);                                            \
+  gsub(DQ,"\\\"",value);                                             \
   # 4)データ種別スタック最上位値によって分岐                         \
   # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          \
   if ((datacat_stack[stack_depth]=="l0") ||                          \
@@ -287,24 +319,27 @@ $0~/^,$/{                                                            \
 # 最終処理                                                           \
 END {                                                                \
   if (_assert_exit) {                                                \
-    print "Invalid JSON format" > "/dev/stderr";                     \
+    print "Invalid JSON format", LF > "/dev/stderr";                 \
     line1="keyname-stack:";                                          \
     line2="datacat-stack:";                                          \
     for (i=1;i<=stack_depth;i++) {                                   \
       line1=line1 sprintf("{%s}",keyname_stack[i]);                  \
       line2=line2 sprintf("{%s}",datacat_stack[i]);                  \
     }                                                                \
-    printf("%s\n%s\n",line1,line2) > "/dev/stderr";                  \
+    print line1, LF, line2, LF > "/dev/stderr";                      \
   }                                                                  \
   exit _assert_exit;                                                 \
 }                                                                    \
 # キー名一覧と値を表示する関数                                       \
-function print_keys_and_value (str) {                                \
-  line=keyname_stack[1];                                             \
-  for (i=2;i<=stack_depth;i++) {                                     \
-    s = (substr(datacat_stack[i],1,1)=="l")?list_prefix:"";          \
-    line=line keykey_delim s keyname_stack[i];                       \
+function print_keys_and_value(str) {                                 \
+  print root_symbol;                                                 \
+  for (i=1;i<=stack_depth;i++) {                                     \
+    if (substr(datacat_stack[i],1,1)=="l") {                         \
+      print list_prefix, keyname_stack[i], list_suffix;              \
+    } else {                                                         \
+      print key_delimit, keyname_stack[i];                           \
+    }                                                                \
   }                                                                  \
-  printf("%s\n",line keyval_delim str);                              \
+  print " ", str, LF;                                                \
 }                                                                    \
 '
