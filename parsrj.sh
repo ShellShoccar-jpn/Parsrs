@@ -23,14 +23,14 @@
 #       さらにこれを unescj.sh にパイプすれば、完全な値として取り出せる。
 #
 # Usage   : parsrj.sh [JSON_file]           ←JSONPath表現
-#         : parsrj.sh --xpath [JSON_file]   ←XPath表現(*1)   ↓カスタム表現
-# Usage   : parsrj.sh [-rt<str>] [-kd<str>] [-lp<str>] [-ls<str>] [JSON_file]
+#         : parsrj.sh --xpath [JSON_file]   ←XPath表現     ↓カスタム表現
+# Usage   : parsrj.sh [-rt<s>] [-kd<s>] [-lp<s>] [-ls<s>] [-fn<n>] [JSON_file]
 # Options : -rt はルート階層シンボル文字列指定(デフォルトは"$")
 #         : -kd は各階層のキー名文字列間のデリミター指定(デフォルトは".")
 #         : -lp は配列キーのプレフィックス文字列指定(デフォルトは"[")
 #         : -ls は配列キーのサフィックス文字列指定(デフォルトは"]")
-#         : --xpathは階層表現をXPath形式(*1)にする(-rt -kd/ -lp/ -ls指定と同等)
-#           *1 但し配列の番号は0始まり、かつ"hoge[n]"ではなく"hoge/n"として表記
+#         : -fn は配列キー番号の開始番号(デフォルトは0)
+#         : --xpathは階層表現をXPath形式にする(-rt -kd/ -lp[ -ls] -fn1と等価)
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 11, 2013
 
 
@@ -42,6 +42,7 @@ rt='$'
 kd='.'
 lp='['
 ls=']'
+fn=0
 for arg in "$@"; do
   if [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
     rt=${arg#-rt}
@@ -51,11 +52,16 @@ for arg in "$@"; do
     lp=${arg#-lp}
   elif [ \( "_${arg#-ls}" != "_$arg" \) -a \( -z "$file" \) ]; then
     ls=${arg#-ls}
+  elif [ \( "_${arg#-fn}" != "_$arg" \) -a \( -z "$file" \) -a \
+         -n "$(echo -n "_${arg#-fn}" | grep '^_[0-9]\+$')"     ]; then
+    fn=${arg#-fn}
+    fn=$((fn+0))
   elif [ \( "_$arg" = '_--xpath' \) -a \( -z "$file" \) ]; then
     rt=''
     kd='/'
-    lp='/'
-    ls=''
+    lp='['
+    ls=']'
+    fn=1
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
@@ -63,14 +69,14 @@ for arg in "$@"; do
   else
     cat <<____USAGE 1>&2
 Usage   : ${0##*/} [JSON_file]           ←JSONPath表現
-        : ${0##*/} --xpath [JSON_file]   ←XPath表現(*1)   ↓カスタム表現
-        : ${0##*/} [-rt<str>] [-kd<str>] [-lp<str>] [-ls<str>] [JSON_file]
+        : ${0##*/} --xpath [JSON_file]   ←XPath表現     ↓カスタム表現
+        : ${0##*/} [-rt<s>] [-kd<s>] [-lp<s>] [-ls<s>] [-fn<n>] [JSON_file]
 Options : -rt はルート階層シンボル文字列指定(デフォルトは"$")
         : -kd は各階層のキー名文字列間のデリミター指定(デフォルトは".")
         : -lp は配列キーのプレフィックス文字列指定(デフォルトは"[")
         : -ls は配列キーのサフィックス文字列指定(デフォルトは"]")
-        : --xpathは階層表現をXPath形式(*1)にする(-rt -kd/ -lp/ -ls指定と同等)
-          *1 但し配列の番号は0始まり、かつ"hoge[n]"ではなく"hoge/n"として表記
+        : -fn は配列キー番号の開始番号(デフォルトは0)
+        : --xpathは階層表現をXPath形式にする(-rt -kd/ -lp[ -ls] -fn1と等価)
 ____USAGE
     exit 1
   fi
@@ -202,7 +208,7 @@ $0~/^\[$/{                                                           \
       (datacat_stack[stack_depth]=="h2")  ) {                        \
     stack_depth++;                                                   \
     datacat_stack[stack_depth]="l0";                                 \
-    keyname_stack[stack_depth]=0;                                    \
+    keyname_stack[stack_depth]='"$fn"';                              \
     next;                                                            \
   } else {                                                           \
     _assert_exit=1;                                                  \
