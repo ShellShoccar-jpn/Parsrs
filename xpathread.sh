@@ -28,6 +28,7 @@
 # Usage   : xpathread.sh [-d<str>] [-i<str>] <XPath> [XPath_indexed_data]
 # Options : -d is for setting the substitution of blank (default:"_")
 #         : -i is for setting the substitution of null (default:"@")
+#         : -p permits to add the properties of the tag to the table
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 12, 2013
 
@@ -35,6 +36,7 @@
 # ===== 引数を解析する ===============================================
 dopt='_'
 iopt='@'
+popt=''
 xpath=''
 xpath_file=''
 optmode=''
@@ -44,11 +46,12 @@ for arg in "$@"; do
   i=$((i+1))
   if [ -z "$optmode" ]; then
     case "$arg" in
-      -[di]*)
+      -[dip]*)
         ret=$(echo "_${arg#-}" |
               awk '{
                 d = "_";
                 i = "_";
+                p = "_";
                 opt_str = "";
                 for (n=2; n<=length($0); n++) {
                   s = substr($0,n,1);
@@ -60,9 +63,11 @@ for arg in "$@"; do
                     i = "i";
                     opt_str = substr($0, n+1);
                     break;
+                  } else if (s == "p") {
+                    p = "p";
                   }
                 }
-                printf("%s%s %s", d, i, opt_str);
+                printf("%s%s%s %s", d, i, p, opt_str);
               }')
         ret1=${ret%% *}
         ret2=${ret#* }
@@ -75,6 +80,9 @@ for arg in "$@"; do
           else
             optmode='i'
           fi
+        fi
+        if [ "${ret1#*p}" != "$ret1" ]; then
+          popt='#'
         fi
         ;;
       *)
@@ -117,6 +125,7 @@ if [ $printhelp -ne 0 ]; then
 Usage   : ${0##*/} [-d<str>] [-i<str>] <XPath> [XPath_indexed_data]
 Options : -d is for setting the substitution of blank (default:"_")
         : -i is for setting the substitution of null (default:"@")
+        : -p permits to add the properties of the tag to the table
 __USAGE
   exit 1
 fi
@@ -150,13 +159,20 @@ awk '
       if (substr(f1,1,xpathlen) != xpath) {
         continue;
       }
-      f1 = substr(f1, length(xpath)+1);
+      f1 = substr(f1, xpathlen+1);
       sub(/^\[[0-9]+\]/, "", f1);
       if (length(f1) == 0) {
         print "/";
         continue;
       }
       f1 = substr(f1, 2);
+      j = index(f1, "/");
+      if (j != 0) {
+         '"$popt"'continue;
+         if (substr(f1,j+1,1) != "@") {
+           continue;
+         }
+      }
       sub(/\[[0-9]+\]$/, "", f1);
       if ((i==0) || (i==length(line))) {
         f2 = "";
