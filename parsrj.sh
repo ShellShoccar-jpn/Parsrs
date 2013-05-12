@@ -22,15 +22,17 @@
 #       後ろ grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
 #       さらにこれを unescj.sh にパイプすれば、完全な値として取り出せる。
 #
-# Usage   : parsrj.sh [JSON_file]           ←JSONPath表現
-#         : parsrj.sh --xpath [JSON_file]   ←XPath表現     ↓カスタム表現
-# Usage   : parsrj.sh [-rt<s>] [-kd<s>] [-lp<s>] [-ls<s>] [-fn<n>] [JSON_file]
-# Options : -rt はルート階層シンボル文字列指定(デフォルトは"$")
-#         : -kd は各階層のキー名文字列間のデリミター指定(デフォルトは".")
-#         : -lp は配列キーのプレフィックス文字列指定(デフォルトは"[")
-#         : -ls は配列キーのサフィックス文字列指定(デフォルトは"]")
-#         : -fn は配列キー番号の開始番号(デフォルトは0)
-#         : --xpathは階層表現をXPath形式にする(-rt -kd/ -lp[ -ls] -fn1と等価)
+# Usage   : parsrj.sh [JSON_file]                       ←JSONPath表現
+#         : parsrj.sh --xpath [JSON_file]               ←XPath表現
+#         : parsrj.sh [2letters_options...] [JSON_file] ←カスタム表現
+# Options : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
+#         : -kd<s> は各階層のキー名文字列間のデリミター指定(デフォルトは".")
+#         : -lp<s> は配列キーのプレフィックス文字列指定(デフォルトは"[")
+#         : -ls<s> は配列キーのサフィックス文字列指定(デフォルトは"]")
+#         : -fn<n> は配列キー番号の開始番号(デフォルトは0)
+#         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
+#         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
+#
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 11, 2013
 
 
@@ -43,6 +45,7 @@ kd='.'
 lp='['
 ls=']'
 fn=0
+unoptli='#'
 for arg in "$@"; do
   if [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
     rt=${arg#-rt}
@@ -56,27 +59,31 @@ for arg in "$@"; do
          -n "$(echo -n "_${arg#-fn}" | grep '^_[0-9]\+$')"     ]; then
     fn=${arg#-fn}
     fn=$((fn+0))
+  elif [ \( "_$arg" = '_-li' \) -a \( -z "$file" \) ]; then
+    unoptli=''
   elif [ \( "_$arg" = '_--xpath' \) -a \( -z "$file" \) ]; then
     rt=''
     kd='/'
     lp='['
     ls=']'
     fn=1
+    unoptli=''
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
     file='-'
   else
     cat <<____USAGE 1>&2
-Usage   : ${0##*/} [JSON_file]           ←JSONPath表現
-        : ${0##*/} --xpath [JSON_file]   ←XPath表現     ↓カスタム表現
-        : ${0##*/} [-rt<s>] [-kd<s>] [-lp<s>] [-ls<s>] [-fn<n>] [JSON_file]
-Options : -rt はルート階層シンボル文字列指定(デフォルトは"$")
-        : -kd は各階層のキー名文字列間のデリミター指定(デフォルトは".")
-        : -lp は配列キーのプレフィックス文字列指定(デフォルトは"[")
-        : -ls は配列キーのサフィックス文字列指定(デフォルトは"]")
-        : -fn は配列キー番号の開始番号(デフォルトは0)
-        : --xpathは階層表現をXPath形式にする(-rt -kd/ -lp[ -ls] -fn1と等価)
+Usage   : ${0##*/} [JSON_file]                       ←JSONPath表現
+        : ${0##*/} --xpath [JSON_file]               ←XPath表現
+        : ${0##*/} [2letters_options...] [JSON_file] ←カスタム表現
+Options : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
+        : -kd<s> は各階層のキー名文字列間のデリミター指定(デフォルトは".")
+        : -lp<s> は配列キーのプレフィックス文字列指定(デフォルトは"[")
+        : -ls<s> は配列キーのサフィックス文字列指定(デフォルトは"]")
+        : -fn<n> は配列キー番号の開始番号(デフォルトは0)
+        : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
+        : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 ____USAGE
     exit 1
   fi
@@ -226,6 +233,7 @@ $0~/^\]$/{                                                           \
   if ((stack_depth>0)                       &&                       \
       ((datacat_stack[stack_depth]=="l0") ||                         \
        (datacat_stack[stack_depth]=="l2")  ) ) {                     \
+    '"$unoptli"'print_keys_and_value("");                            \
     delete datacat_stack[stack_depth];                               \
     delete keyname_stack[stack_depth];                               \
     stack_depth--;                                                   \
@@ -264,6 +272,10 @@ $0~/^,$/{                                                            \
     _assert_exit=1;                                                  \
     exit _assert_exit;                                               \
   }                                                                  \
+  '"$unoptli"'# 1.5)-liオプション有効時の動作                        \
+  '"$unoptli"'if (substr(datacat_stack[stack_depth],1,1)=="l") {     \
+  '"$unoptli"'  print_keys_and_value("");                            \
+  '"$unoptli"'}                                                      \
   # 2)データ種別スタック最上位値によって分岐                         \
   # 2a)"l2:配列(値取得直後)"の場合                                   \
   if (datacat_stack[stack_depth]=="l2") {                            \
