@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# xpath2tag.sh
+# xpathread.sh
 #    XPath形式インデックス付きデータをタグ形式に変換する
 #    (例)
 #    /foo/bar/onamae かえる
@@ -25,7 +25,7 @@
 #      (上記の例では、最初の3行が /foo/bar[1]...、後の3行が/foo/bar[2]...、と
 #      なっていてもよい。)
 #
-# Usage   : ${0##*/} [-d<str>] [-i<str>] <XPath> [XPath_indexed_data]
+# Usage   : xpathread.sh [-d<str>] [-i<str>] <XPath> [XPath_indexed_data]
 # Options : -d is for setting the substitution of blank (default:"_")
 #         : -i is for setting the substitution of null (default:"@")
 #
