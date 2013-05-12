@@ -67,12 +67,7 @@ for arg in "$@"; do
         ret1=${ret%% *}
         ret2=${ret#* }
         if [ "${ret1#*d}" != "$ret1" ]; then
-          if [ -n "$ret2" ]; then
-            dopt=$ret2
-          else
-            printhelp=1
-            break
-          fi
+          dopt=$ret2
         fi
         if [ "${ret1#*i}" != "$ret1" ]; then
           if [ -n "$ret2" ]; then
