@@ -25,7 +25,8 @@
 # Usage   : parsrj.sh [JSON_file]                       ←JSONPath表現
 #         : parsrj.sh --xpath [JSON_file]               ←XPath表現
 #         : parsrj.sh [2letters_options...] [JSON_file] ←カスタム表現
-# Options : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
+# Options : -sk<s> はキー名文字列内にあるスペースの置換文字列(デフォルトは"_")
+#         : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
 #         : -kd<s> は各階層のキー名文字列間のデリミター指定(デフォルトは".")
 #         : -lp<s> は配列キーのプレフィックス文字列指定(デフォルトは"[")
 #         : -ls<s> は配列キーのサフィックス文字列指定(デフォルトは"]")
@@ -33,13 +34,14 @@
 #         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 11, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 25, 2013
 
 
 DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
 
 file=''
+sk='_'
 rt='$'
 kd='.'
 lp='['
@@ -47,7 +49,9 @@ ls=']'
 fn=0
 unoptli='#'
 for arg in "$@"; do
-  if [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
+  if [ \( "_${arg#-sk}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    sk=${arg#-sk}
+  elif [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
     rt=${arg#-rt}
   elif [ \( "_${arg#-kd}" != "_$arg" \) -a \( -z "$file" \) ]; then
     kd=${arg#-kd}
@@ -77,7 +81,8 @@ for arg in "$@"; do
 Usage   : ${0##*/} [JSON_file]                       ←JSONPath表現
         : ${0##*/} --xpath [JSON_file]               ←XPath表現
         : ${0##*/} [2letters_options...] [JSON_file] ←カスタム表現
-Options : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
+Options : -sk<s> はキー名文字列内にあるスペースの置換文字列(デフォルトは"_")
+        : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
         : -kd<s> は各階層のキー名文字列間のデリミター指定(デフォルトは".")
         : -lp<s> は配列キーのプレフィックス文字列指定(デフォルトは"[")
         : -ls<s> は配列キーのサフィックス文字列指定(デフォルトは"]")
@@ -88,6 +93,12 @@ ____USAGE
     exit 1
   fi
 done
+sk=$(echo -n "_$sk"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
 rt=$(echo -n "_$rt"                |
      od -A n -t o1                 |
      tr -d '\n'                    |
@@ -135,6 +146,8 @@ grep -v '^[[:blank:]]*$'                                             |
 # (*2 JSONの厳密なチェックを省略するならもっと簡素で高速にできる)    #
 awk '                                                                \
 BEGIN {                                                              \
+  # キー文字列内にあるスペースの置換文字列をシェル変数に基づいて定義 \
+  alt_spc_in_key=sprintf("'"$sk"'");                                 \
   # 階層表現文字列をシェル変数に基づいて定義する                     \
   root_symbol=sprintf("'"$rt"'");                                    \
   key_delimit=sprintf("'"$kd"'");                                    \
@@ -318,6 +331,7 @@ $0~/^,$/{                                                            \
   # 4b)"h0:ハッシュ(キー未取得)"の場合                               \
   } else if (datacat_stack[stack_depth]=="h0") {                     \
     # 4b-1)値をキー名としてキー名スタックにpush                      \
+    gsub(/ /,alt_spc_in_key,value);                                  \
     keyname_stack[stack_depth]=value;                                \
     # 4b-2)データ種別スタック最上位を"h1:ハッシュ(キー取得済)"に変更 \
     datacat_stack[stack_depth]="h1";                                 \
