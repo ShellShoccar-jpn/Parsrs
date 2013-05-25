@@ -40,7 +40,7 @@ for arg in "$@"; do
   i=$((i+1))
   if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
     optlf=$(printf "_${arg#-lf}_"    |
-            tr -d "$SO$SI$RS$US"     |
+            tr -d "$SI$RS$US"        |
             tr '\n' $SI              |
             sed 's/^_//'             |
             sed 's/\\/\\\\/g'        |
