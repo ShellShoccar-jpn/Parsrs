@@ -8,7 +8,7 @@
 #
 # Usage: unsecj.sh [JSON_value_textfile]
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Dec 15, 2012
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 11, 2014
 
 
 BS=$(printf '\010')             # バックスペース
@@ -31,7 +31,7 @@ fi
 cat "$file"                                                          |
 #                                                                    #
 # === Unicodeエスケープ文字列(\uXXXX)の手前に改行を挿入 ============ #
-sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LF"'\1/'                           |
+sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LF"'\1/g'                          |
 #                                                                    #
 # === Unicodeエスケープ文字列をデコード ============================ #
 #     (但し\u000a と \u000d と \u005c は \n、\r、\\ に変換する）     #
