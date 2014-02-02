@@ -4,11 +4,13 @@
 #    JSONによるエスケープ文字を含む文字列をアンエスケープする
 #    ・Unicodeエスケープが含まれている場合はその部分をUTF-8化する
 #    ・このスクリプトはJSONの値部分のみの処理を想定している
+#      (値の中に改行を示すエスケープがあったら素直に改行に変換する。
+#       これが困る場合は -n オプションを使う。すると "\n" と出力される)
 #    ・JSON文字列のパース(キーと値の分離)はjsonparser.shで予め行うこと
 #
-# Usage: unsecj.sh [JSON_value_textfile]
+# Usage: unsecj.sh [-n] [JSON_value_textfile]
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 11, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 2, 2014
 
 
 BS=$(printf '\010')             # バックスペース
@@ -17,18 +19,29 @@ LF=$(printf '\\\n_');LF=${LF%_} # 改行(sedコマンド取扱用)
 FF=$(printf '\014')             # 改ページ
 CR=$(printf '\015')             # キャリッジリターン
 
+if [ \( $# -ge 1 \) -a \( "_$1" = '_-n' \) ]; then
+  LF_NONDECODE=1
+  shift
+fi
 if [ \( $# -eq 1 \) -a \( \( -f "$1" \) -o \( -c "$1" \) \) ]; then
   file=$1
 elif [ \( $# -eq 0 \) -o \( \( $# -eq 1 \) -a \( "_$1" = '_-' \) \) ]
 then
   file='-'
 else
-  echo "Usage : ${0##*/} [JSON_value_textfile]" 1>&2
+  echo "Usage : ${0##*/} [-n] [JSON_value_textfile]" 1>&2
   exit 1
 fi
 
 # === データの流し込み ============================================= #
 cat "$file"                                                          |
+#                                                                    #
+# === もとからあった改行に印"\n"をつける =========================== #
+if [ -z "${LF_NONDECODE:-}" ]; then                                  #
+  sed '$!s/$/\\n/'                                                   #
+else                                                                 #
+  sed '$!s/$/\\N/' # -nオプション付の場合は"\n"を保持する為"\N"とする#
+fi                                                                   |
 #                                                                    #
 # === Unicodeエスケープ文字列(\uXXXX)の手前に改行を挿入 ============ #
 sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LF"'\1/g'                          |
@@ -37,7 +50,7 @@ sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LF"'\1/g'                          |
 #     (但し\u000a と \u000d と \u005c は \n、\r、\\ に変換する）     #
 awk '                                                                \
 BEGIN {                                                              \
-  OFS="";                                                            \
+  OFS=""; ORS="";                                                    \
   for(i=255;i>=0;i--) {                                              \
     s=sprintf("%c",i);                                               \
     bhex2chr[sprintf("%02x",i)]=s;                                   \
@@ -87,15 +100,16 @@ BEGIN {                                                              \
   print;                                                             \
 }                                                                    \
 '                                                                    |
-# === Unicodeエスケープ文字列手前に挿入していた改行を削除 ========== #
-tr -d '\n'                                                           |
-#                                                                    #
 # === \\ 以外のエスケープ文字列をデコード ========================== #
 sed 's/\\"/"/g'                                                      |
 sed 's/\\\//\//g'                                                    |
 sed 's/\\b/'"$BS"'/g'                                                |
 sed 's/\\f/'"$FF"'/g'                                                |
-sed 's/\\n/'"$LF"'/g'                                                |
+if [ -z "${LF_NONDECODE:-}" ]; then                                  #
+  sed 's/\\n/'"$LF"'/g'                                              #
+else                                                                 #
+  sed 's/\\N/'"$LF"'/g'                                              #
+fi                                                                   |
 sed 's/\\r/'"$CR"'/g'                                                |
 sed 's/\\t/'"$TAB"'/g'                                               |
 #                                                                    #
