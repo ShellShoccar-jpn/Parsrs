@@ -5,12 +5,13 @@
 #    ・Unicodeエスケープが含まれている場合はその部分をUTF-8化する
 #    ・このスクリプトはJSONの値部分のみの処理を想定している
 #      (値の中に改行を示すエスケープがあったら素直に改行に変換する。
-#       これが困る場合は -n オプションを使う。すると "\n" と出力される)
-#    ・JSON文字列のパース(キーと値の分離)はjsonparser.shで予め行うこと
+#       これが困る場合は -n オプションを使う。すると "\r" と"\n" の
+#       まま出力される)
+#    ・JSON文字列のパース(キーと値の分離)はparsrj.shで予め行うこと
 #
 # Usage: unsecj.sh [-n] [JSON_value_textfile]
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 2, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Feb 3, 2014
 
 
 BS=$(printf '\010')             # バックスペース
@@ -106,11 +107,10 @@ sed 's/\\\//\//g'                                                    |
 sed 's/\\b/'"$BS"'/g'                                                |
 sed 's/\\f/'"$FF"'/g'                                                |
 if [ -z "${LF_NONDECODE:-}" ]; then                                  #
-  sed 's/\\n/'"$LF"'/g'                                              #
+  sed 's/\\r/'"$CR"'/g' | sed 's/\\n/'"$LF"'/g'                      #
 else                                                                 #
   sed 's/\\N/'"$LF"'/g'                                              #
 fi                                                                   |
-sed 's/\\r/'"$CR"'/g'                                                |
 sed 's/\\t/'"$TAB"'/g'                                               |
 #                                                                    #
 # === \\ をデコード ================================================ #
