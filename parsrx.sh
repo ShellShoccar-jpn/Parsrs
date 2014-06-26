@@ -1,403 +1,377 @@
 #! /bin/sh
 #
-# parsrx.sh
-#    XMLテキストから
+# parsrj.sh
+#    JSONテキストから
 #    階層インデックス付き値(tree indexed value)テキスへの正規化
 #    (例)
-#     <foo>
-#       あはは
-#       <bar hoge="ほげ" piyo="ぴよ">えへへ<br /></bar>
-#       いひひ
-#     </foo>
+#     {"hoge":111,
+#      "foo" :["2\n2",
+#              {"bar" :"3 3",
+#               "fizz":{"bazz":444}
+#              },
+#              "\u5555"
+#             ]
+#     }
 #     ↓
-#     /foo/bar/@hoge ほげ
-#     /foo/bar/@piyo ぴよ
-#     /foo/bar/br 
-#     /foo/bar えへへ
-#     /foo \n  あはは\n  \n  いひひ\n
-#     ◇第1列はXMLパス名(XPath形式：区切りは"/"、ただし属性名手前には"@")
-#     ◇第2列(最初のスペース文字の次以降全部)はそのパスの持つ値(空値の場合あり)
-#     ◇よって grep '^foo/bar ' | sed 's/^[^ ]* //' などと
-#       後ろに grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
-#       さらにこれを sed 's/\\n[[:blank:]]*/\\n/g; s/\\n$//; s/^\\n//' 等に
-#       パイプすれば、前後の余計な改行やインデントを取り除け、さらに
-#       sed 's/\\n/\
-#       /g' などにパイプすれば、改行も元の姿に復元できる。
-#    (注意)
-#    ・XMLに準拠していないもの(記号がヘン,タグが正しく入れ子になっていない等)を
-#      与えられた場合は正常に正規化されることを保証できない
-#    ・HTMLも下記のような処理を予めして、XMLに準拠させれば扱える
-#      - 改行コードを\nにする(XMLの規約)
-#      - meta,link,br,img,input,hr,embed,area,base,col,keygen,param,source など
-#        閉じタグの無いタグは単独で閉じさせる
+#     $.hoge 111
+#     $.foo[0] 2\n2
+#     $.foo[1].bar 3 3
+#     $.foo[1].fizz.bazz 444
+#     $.foo[2] \u5555
+#     ◇よって grep '^\$foo[1].bar ' | sed 's/^[^ ]* //' などと
+#       後ろ grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
+#       さらにこれを unescj.sh にパイプすれば、完全な値として取り出せる。
 #
-# Usage   : parsrx.sh [-c] [-n] [-lf<str>] [XML_file]
-# Options : -c  はタグ内に含まれる子タグの可視化
-#           -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
-#           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
+# Usage   : parsrj.sh [JSON_file]                       ←JSONPath表現
+#         : parsrj.sh --xpath [JSON_file]               ←XPath表現
+#         : parsrj.sh [2letters_options...] [JSON_file] ←カスタム表現
+# Options : -sk<s> はキー名文字列内にあるスペースの置換文字列(デフォルトは"_")
+#         : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
+#         : -kd<s> は各階層のキー名文字列間のデリミター指定(デフォルトは".")
+#         : -lp<s> は配列キーのプレフィックス文字列指定(デフォルトは"[")
+#         : -ls<s> は配列キーのサフィックス文字列指定(デフォルトは"]")
+#         : -fn<n> は配列キー番号の開始番号(デフォルトは0)
+#         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
+#         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 12, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 27, 2014
 
-SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
-ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
-PRO=$(printf '\020') # 属性行開始識別文字
-SCS=$(printf '\021') # 一重引用符開始端(候補)エスケープ用文字
-ECS=$(printf '\022') # 一重引用符終端(候補)エスケープ用文字
-SCD=$(printf '\023') # 二重引用符開始端(候補)エスケープ用文字
-ECD=$(printf '\024') # 二重引用符終端(候補)エスケープ用文字
-SPC=$(printf '\025') # 引用符内スペースのエスケープ用文字
-TAB=$(printf '\026') # 引用符内タブのエスケープ用文字
-GT=$( printf '\027') # 引用符内">"のエスケープ用文字
-LT=$( printf '\030') # 引用符内"<"のエスケープ用文字
-SLS=$(printf '\031') # 引用符内"/"のエスケープ用文字
-LF=$( printf '\177') # 改行(タグ内の引用符外は除く)のエスケープ用文字
 
-T=$( printf '\011')             # タブ(エスケープ用ではない)
-N=$( printf '\\\012_');N=${N%_} # sedコマンド用の改行(エスケープ用ではない)
+DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
+LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
 
-optlf=''
-unoptc='#'
-unoptn='#'
 file=''
-printhelp=0
+sk='_'
+rt='$'
+kd='.'
+lp='['
+ls=']'
+fn=0
+unoptli='#'
 for arg in "$@"; do
-  if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    optlf=$(echo -n "_${arg#-lf}_" |
-            tr -d '\n'             |
-            sed 's/^_//'           |
-            sed 's/\\/\\\\/g'      |
-            sed 's/&/\\\&/g'       |
-            sed 's/\//\\\//g'      )
-    optlf=${optlf%_}
-  elif [ \( "_${arg#-}" != "_$arg" \) -a \( -n "_${arg#-}" \) \
-         -a \( -z "$file" \)                                  ]
-  then
-    for opt in $(echo "_${arg#-}" | sed 's/^_//;s/\(.\)/\1 /g'); do
-      case "$opt" in
-        c) # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-           unoptc=''
-           ;;
-        n) # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-           unoptn=''
-           ;;
-        *)
-           printhelp=1
-           ;;
-      esac
-    done
-  elif [ \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
-    file='-'
+  if [ \( "_${arg#-sk}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    sk=${arg#-sk}
+  elif [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    rt=${arg#-rt}
+  elif [ \( "_${arg#-kd}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    kd=${arg#-kd}
+  elif [ \( "_${arg#-lp}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    lp=${arg#-lp}
+  elif [ \( "_${arg#-ls}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    ls=${arg#-ls}
+  elif [ \( "_${arg#-fn}" != "_$arg" \) -a \( -z "$file" \) -a \
+         -n "$(echo -n "_${arg#-fn}" | grep '^_[0-9]\{1,\}$')" ]; then
+    fn=${arg#-fn}
+    fn=$((fn+0))
+  elif [ \( "_$arg" = '_-li' \) -a \( -z "$file" \) ]; then
+    unoptli=''
+  elif [ \( "_$arg" = '_--xpath' \) -a \( -z "$file" \) ]; then
+    rt=''
+    kd='/'
+    lp='['
+    ls=']'
+    fn=1
+    unoptli=''
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
+  elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
+    file='-'
   else
-    printhelp=1;
+    cat <<____USAGE 1>&2
+Usage   : ${0##*/} [JSON_file]                       ←JSONPath表現
+        : ${0##*/} --xpath [JSON_file]               ←XPath表現
+        : ${0##*/} [2letters_options...] [JSON_file] ←カスタム表現
+Options : -sk<s> はキー名文字列内にあるスペースの置換文字列(デフォルトは"_")
+        : -rt<s> はルート階層シンボル文字列指定(デフォルトは"$")
+        : -kd<s> は各階層のキー名文字列間のデリミター指定(デフォルトは".")
+        : -lp<s> は配列キーのプレフィックス文字列指定(デフォルトは"[")
+        : -ls<s> は配列キーのサフィックス文字列指定(デフォルトは"]")
+        : -fn<n> は配列キー番号の開始番号(デフォルトは0)
+        : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
+        : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
+____USAGE
+    exit 1
   fi
 done
-if [ $printhelp -ne 0 ]; then
-  cat <<__USAGE 1>&2
-Usage   : ${0##*/} [-c] [-n] [-lf<str>] [XML_file]
-Options : -c  はタグ内に含まれる子タグの可視化
-          -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
-          -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
-__USAGE
-  exit 1
-fi
-[ -z "$optlf" ] && optlf='\\n'
-[ -z "$file"  ] && file='-'
+sk=$(echo -n "_$sk"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+rt=$(echo -n "_$rt"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+kd=$(echo -n "_$kd"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+lp=$(echo -n "_$lp"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+ls=$(echo -n "_$ls"                |
+     od -A n -t o1                 |
+     tr -d '\n'                    |
+     sed 's/^[[:blank:]]*137//'    |
+     sed 's/[[:blank:]]*$//'       |
+     sed 's/[[:blank:]]\{1,\}/\\/g')
+[ -z "$file" ] && file='-'
 
 
-
-# === データの流し込み ======================================================= #
-cat "$file"                                                                    |
-#                                                                              #
-# === タグ内の属性値に含まれるスペース,改行,"<",">"を全てエスケープする ====== #
-# 1)元あった改行をエスケープ                                                   #
-tr '\n' "$LF"                                                                  |
-# 2)一般タグ(それ以外も混ざる)の始まる前で改行                                 #
-sed 's/\(<[^'" $T"'!-.0-9;-@[-^`{-~][^'" $T"'!-,/;-@[-^`{-~]*\)/'"$N$SCT"'\1/g'|
-# 3)属性値開始括弧(それ以外も混ざる)手前で改行                                 #
-sed 's/='"'"'/='"$N$SCS""'"'/g'                                                |
-sed 's/="/='"$N$SCD"'"/g'                                                      |
-# 4)属性値終了括弧(それ以外も混ざる)後で改行                                   #
-sed 's/\([^'"$SCS$SCD"']\)'"'"'\(['" $T$LF"'/>]\)/\1'"$N$ECS""'"'\2/g'         |
-sed 's/\([^'"$SCS$SCD"']\)"\(['" $T$LF"'/>]\)/\1'"$N$ECD"'"\2/g'               |
-# 5)一般タグ(それ以外も混ざる)の終わる前で改行                                 #
-sed 's/>/'"$N$ECT"'>/g'                                                        |
-# 6)本処理                                                                     #
-#   ・タグ内の属性値区間のスペース,タブ,"<",">"をエスケープ                    #
-#   ・エスケープした改行でもタグ内かつ引用符外のものは半角スペースに変換       #
-#   ・一重引用符と二重引用符(値としてのものを除く)はここで除去                 #
-awk '                                                                          \
-  BEGIN {                                                                      \
-    OFS = "";                                                                  \
-    ORS = "";                                                                  \
-    LF  = sprintf("\n");                                                       \
-    Sct = "'"$SCT"'"; # タグ開始端候補識別子として使う文字........残す         \
-    Ect = "'"$ECT"'"; # タグ終了端候補識別子として使う文字........残す         \
-    Scs = "'"$SCS"'"; # 一重引用符開始端候補識別子として使う文字..消す         \
-    Ecs = "'"$ECS"'"; # 一重引用符終了端候補識別子として使う文字..消す         \
-    Scd = "'"$SCD"'"; # 二重引用符開始端候補識別子として使う文字..消す         \
-    Ecd = "'"$ECD"'"; # 二重引用符終了端候補識別子として使う文字..消す         \
-    SPC = "'"$SPC"'"; # スペースをエスケープするための文字........これに置換   \
-    TAB = "'"$TAB"'"; # タブをエスケープするための文字............これに置換   \
-    SLS = "'"$SLS"'"; # /をエスケープするための文字...............これに置換   \
-    GT  = "'"$GT"'";  # >をエスケープするための文字(引用符内用)...これに置換   \
-    LT  = "'"$LT"'";  # <をエスケープするための文字(引用符内用)...これに置換   \
-    in_tag  =  0; # 今読み進めた最後の文字位置はタグ内か                       \
-    in_quot =  0; # 今読み進めた最後の文字位置は括弧内か(SQなら1,DQなら2)      \
-    while (getline line) {                                                     \
-      headofline = substr(line,1,1);                                           \
-      if (in_tag == 0) {                                                       \
-        # 1.タグ外だった場合                                                   \
-        if (       headofline == Sct) {                                        \
-          # 1-1.タグ開始端に来た場合                                           \
-          in_tag = 1;                                                          \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print LF, line;                                                      \
-        } else {                                                               \
-          # 1-2.タグに来てない場合                                             \
-          print substr(line,2);                                                \
-        }                                                                      \
-      } else if (in_quot == 0) {                                               \
-        # 2.タグ内だけど引用符外だった場合                                     \
-        if (       headofline == Ect) {                                        \
-          # 2-1.タグ終端に来た場合                                             \
-          in_tag = 0;                                                          \
-          print line, LF;                                                      \
-        } else if (headofline == Scs) {                                        \
-          # 2-2.一重引用符開始端に来た場合                                     \
-          in_quot = 1;                                                         \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print substr(line,3);                                                \
-        } else if (headofline == Scd) {                                        \
-          # 2-3.二重引用符開始端に来た場合                                     \
-          in_quot = 2;                                                         \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print substr(line,3);                                                \
-        } else {                                                               \
-          # 3-3.その他(タグ開始端や引用符終端....ここでは来ないはずのもの)     \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print substr(line,2);                                                \
-        }                                                                      \
-      } else if (in_quot == 1) {                                               \
-        # 3.一重引用符内だった場合                                             \
-        if (       headofline == Ecs) {                                        \
-          # 3-1.一重引用符終端に来た場合                                       \
-          in_quot = 0;                                                         \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print substr(line,3);                                                \
-        } else {                                                               \
-          # 3-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print substr(line,2);                                                \
-        }                                                                      \
-      } else {                                                                 \
-        # 4.二重引用符内だった場合                                             \
-        if (       headofline == Ecd) {                                        \
-          # 4-1.二重引用符終端に来た場合                                       \
-          in_quot = 0;                                                         \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print substr(line,3);                                                \
-        } else {                                                               \
-          # 4-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print substr(line,2);                                                \
-        }                                                                      \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
-'                                                                              |
-#                                                                              #
-# === コメント(<!-- -->)を削除する =========================================== #
-tr -d '\n'                                                                     |
-sed 's/<!--/'"$N"'<!--'"$N"'/g'                                                |
-sed 's/-->/-->'"$N"'/g'                                                        |
-sed '/^<!--/,/-->$/d'                                                          |
-tr -d '\n'                                                                     |
-#                                                                              #
-# === タグ名行、属性行、タグ内文字列行の3種類に行を分離する ================== #
-# 1)タグ文字列部分を単独の行にする(同時に"<",">"はトル)                        #
-sed 's/'"$SCT"'<\([^'"$ECT"']*\)'"$ECT"'>/'"$N$SCT"'\1'"$N"'/g'                |
-# 2)タグの名称部分と各属性部分を1つ1つ個別の行にする                           #
-#   ・先頭にタグ行or属性行識別子をつけて                                       #
-#   ・属性行を先にし、タグ行は最後にする                                       #
-awk '                                                                          \
-  BEGIN {                                                                      \
-    OFS = "";                                                                  \
-    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..残す                       \
-    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..追加する                   \
-    while (getline line) {                                                     \
-      headofline = substr(line,1,1);                                           \
-      if (headofline == Tag) {                                                 \
-        # 1.タグ行である場合....                                               \
-        split(line, items);                                                    \
-        tagname = substr(items[1],2);                                          \
-        sub(/\/$/, "", tagname);                                               \
-        # 1-1.単独タグかどうかを検出                                           \
-        i = length(items);                                                     \
-        if (match(items[i],/\/$/)) {                                           \
-          singletag = 1;                                                       \
-          if (RSTART == 1) {                                                   \
-            i--;                                                               \
-          } else {                                                             \
-            items[i] = substr(items[i], 1, RSTART-1);                          \
-          }                                                                    \
-        } else {                                                               \
-          singletag = 0;                                                       \
-        }                                                                      \
-        # 1-2.各属性を各々単独の行として出力                                   \
-        for (j=2; j<=i; j++) {                                                 \
-          item = items[j];                                                     \
-          if (match(item, /^[^=]+/)) {                                         \
-            proname = substr(item,1,RLENGTH);                                  \
-            if (match(item, /^[^=]+["'"'"'].+["'"'"']$/)) {                    \
-              k = length(proname);                                             \
-              proval = substr(item,k+3,length(item)-k-3);                      \
-              print Pro, tagname, Pro, proname, " ", proval;                   \
-            } else if (length(proname) == length(item)) {                      \
-              print Pro, tagname, Pro, proname, " ";                           \
-            } else {                                                           \
-              proval = substr(item,length(proname)+2);                         \
-              print Pro, tagname, Pro, proname, " ", proval;                   \
-            }                                                                  \
-          }                                                                    \
-        }                                                                      \
-        # 1-3.タグ名を単独の行として出力                                       \
-        print Tag,      tagname;                                               \
-        # 1-4.単独タグだった場合は閉じタグ行を追加                             \
-        if (singletag) {                                                       \
-          print Tag, "/", tagname;                                             \
-        }                                                                      \
-      } else {                                                                 \
-        # 2.タグ行ではない場合....、そのまま出力                               \
-        print line;                                                            \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
-'                                                                              |
-# === タグ,属性を絶対パス化し、タグ内文字列をタグの値として同行に記す ======== #
-# ・次のような形式になる(第1列はXPath形式)                                     #
-#    /PATH/TO/TAG_NAME VALUE                                                   #
-#    /PATH/TO/TAG_NNAME/@PROPERTY_NAME VALUE                                   #
-# ・VALUEが空の場合でも手前に半角スペースが1個入る                             #
-awk '                                                                          \
-  BEGIN {                                                                      \
-    OFS = "";                                                                  \
-    ORS = "";                                                                  \
-    LF  = sprintf("\n");                                                       \
-    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..消す                       \
-    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..消す                       \
-    split("", tagpath); # K:階層番号、V:パス名                                 \
-    split("", tagvals); # (a)K:階層深度 V:要素数、(b)K:深度,番号 V:文字列      \
-    split("", tagbros); # K:階層番号、V:"/所属タグの名前/名前/名前/…"         \
-    split("", tagrept); # K:"階層番号/タグ名"、V:出現回数                      \
-    currentdepth     =  0; # 現在いる階層の深度                                \
-    currentpathitems =  0; # 現在のフルパスが持っている文字列の個数            \
-    while (getline line) {                                                     \
-      headofline = substr(line,1,1);                                           \
-      if (       headofline == Tag) {                                          \
-        # 1.タグ行だった場合                                                   \
-        if (substr(line,2,1) == "/") {                                         \
-          # 1-1.タグ終了行だった場合                                           \
-          #     現在の階層の値を付けながら値を表示                             \
-          #     一階層出る                                                     \
-          for (i=1; i<=currentdepth; i++) {                                    \
-            s =  tagpath[i];                                                   \
-            print "/", s;                                                      \
-            '"$unoptn"'print "[", tagrept[i "/" s], "]";                       \
-          }                                                                    \
-          print " ";                                                           \
-          for (i=1; i<=currentpathitems; i++) {                                \
-            print  tagvals[currentdepth "," i];                                \
-            delete tagvals[currentdepth "," i];                                \
-          }                                                                    \
-          print LF;                                                            \
-          delete tagpath[currentdepth];                                        \
-          '"$unoptn"'i = currentdepth + 1;                                     \
-          '"$unoptn"'if (i in tagbros) {                                       \
-          '"$unoptn"'  split(substr(tagbros[i],2), array, "/");                \
-          '"$unoptn"'  for (j in array) {                                      \
-          '"$unoptn"'    delete tagrept[i "/" array[j]];                       \
-          '"$unoptn"'  }                                                       \
-          '"$unoptn"'  split("", array);                                       \
-          '"$unoptn"'}                                                         \
-          currentdepth--;                                                      \
-          currentpathitems = tagvals[currentdepth];                            \
-          delete tagvals[currentdepth];                                        \
-        } else {                                                               \
-          # 1-2.タグ開始行だった場合                                           \
-          #     一階層入る                                                     \
-          currenttagname = substr(line,2);                                     \
-          '"$unoptc"'childtag = "<" currenttagname "/>";                       \
-          '"$unoptc"'currentpathitems++;                                       \
-          '"$unoptc"'tagvals[currentdepth "," currentpathitems] = childtag;    \
-          tagvals[currentdepth] = currentpathitems;                            \
-          currentpathitems = 0;                                                \
-          currentdepth++;                                                      \
-          tagpath[currentdepth] = currenttagname;                              \
-          '"$unoptn"'if (currentdepth in tagbros) {                            \
-          '"$unoptn"'  if (currentdepth "/" currenttagname in tagrept) {       \
-          '"$unoptn"'    tagrept[currentdepth "/" currenttagname]++;           \
-          '"$unoptn"'  } else {                                                \
-          '"$unoptn"'    s = tagbros[currentdepth] "/" currenttagname;         \
-          '"$unoptn"'    tagbros[currentdepth] = s;                            \
-          '"$unoptn"'    tagrept[currentdepth "/" currenttagname] = 1;         \
-          '"$unoptn"'  }                                                       \
-          '"$unoptn"'} else {                                                  \
-          '"$unoptn"'  tagbros[currentdepth] = "/" currenttagname;             \
-          '"$unoptn"'  tagrept[currentdepth "/" currenttagname] = 1;           \
-          '"$unoptn"'}                                                         \
-        }                                                                      \
-      } else if (headofline == Pro) {                                          \
-        # 2.属性行だった場合                                                   \
-        for (i=1; i<=currentdepth; i++) {                                      \
-          s =  tagpath[i];                                                     \
-          print "/", s;                                                        \
-          '"$unoptn"'print "[", tagrept[i "/" s], "]";                         \
-        }                                                                      \
-        s = substr(line,2);                                                    \
-        i = index(s, "'"$PRO"'");                                              \
-        currenttagname = substr(s, 1, i-1);                                    \
-        print "/", currenttagname;                                             \
-        '"$unoptn"'j = currentdepth + 1;                                       \
-        '"$unoptn"'if ((j "/" currenttagname) in tagrept) {                    \
-        '"$unoptn"'  print "[", (tagrept[j "/" currenttagname]+1), "]";        \
-        '"$unoptn"'} else {                                                    \
-        '"$unoptn"'  print "[1]";                                              \
-        '"$unoptn"'}                                                           \
-        print "/@", substr(s,i+1), LF;                                         \
-      } else {                                                                 \
-        # 3.その他の行だった場合                                               \
-        #   現在の階層の値変数にその行を追加                                   \
-        currentpathitems++;                                                    \
-        tagvals[currentdepth "," currentpathitems] = line;                     \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
-'                                                                              |
-#                                                                              #
-# === アンエスケープ ========================================================= #
-# 1)スペース,タブ,"<",">","/"を元に戻す                                        #
-sed 's/'"$GT"'/>/g'                                                            |
-sed 's/'"$LT"'/</g'                                                            |
-sed 's/'"$SLS"'/\//g'                                                          |
-sed 's/'"$SPC"'/ /g'                                                           |
-sed 's/'"$TAB"'/'"$T"'/g'                                                      |
-# 2)エスケープ改行を、引数で指定された(あるいはデフォルトの)文字列に変換する   #
-sed 's/'"$LF"'/'"$optlf"'/g'
+# === データの流し込み ============================================= #
+cat "$file"                                                          |
+#                                                                    #
+# === 値としてのダブルクォーテーション(DQ)をエスケープ ============= #
+sed "s/\\\\\"/$DQ/g"                                                 |
+#                                                                    #
+# === DQ始まり～DQ終わりの最小マッチングの前後に改行を入れる ======= #
+sed "s/\(\"[^\"]*\"\)/$LF\1$LF/g"                                    |
+#                                                                    #
+# === DQ始まり以外の行の"{","}","[","]",":",","の前後に改行を挿入 == #
+sed "/^[^\"]/s/\([][{}:,]\)/$LF\1$LF/g"                              |
+#                                                                    #
+# === 無駄な空行は予め取り除いておく =============================== #
+grep -v '^[[:blank:]]*$'                                             |
+#                                                                    #
+# === 行頭の記号を見ながら状態遷移させて処理(*1,strict版*2) ======== #
+# (*1 エスケープしたDQもここで元に戻す)                              #
+# (*2 JSONの厳密なチェックを省略するならもっと簡素で高速にできる)    #
+awk '                                                                \
+BEGIN {                                                              \
+  # キー文字列内にあるスペースの置換文字列をシェル変数に基づいて定義 \
+  alt_spc_in_key=sprintf("'"$sk"'");                                 \
+  # 階層表現文字列をシェル変数に基づいて定義する                     \
+  root_symbol=sprintf("'"$rt"'");                                    \
+  key_delimit=sprintf("'"$kd"'");                                    \
+  list_prefix=sprintf("'"$lp"'");                                    \
+  list_suffix=sprintf("'"$ls"'");                                    \
+  # データ種別スタックの初期化                                       \
+  datacat_stack[0]="";                                               \
+  delete datacat_stack[0]                                            \
+  # キー名スタックの初期化                                           \
+  keyname_stack[0]="";                                               \
+  delete keyname_stack[0]                                            \
+  # スタックの深さを0に設定                                          \
+  stack_depth=0;                                                     \
+  # エラー終了検出変数を初期化                                       \
+  _assert_exit=0;                                                    \
+  # 同期信号キャラクタ(事前にエスケープしていたDQを元に戻すため)     \
+  DQ=sprintf("\026");                                                \
+  # 改行キャラクター                                                 \
+  LF =sprintf("\n");                                                 \
+  # print文の自動フィールドセパレーター挿入と文末自動改行をなくす    \
+  OFS="";                                                            \
+  ORS="";                                                            \
+}                                                                    \
+# "{"行の場合                                                        \
+$0~/^{$/{                                                            \
+  # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  \
+  # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   \
+  # データ種別スタックに"h0:ハッシュ(キー未取得)"をpush              \
+  if ((stack_depth==0)                   ||                          \
+      (datacat_stack[stack_depth]=="l0") ||                          \
+      (datacat_stack[stack_depth]=="l1") ||                          \
+      (datacat_stack[stack_depth]=="h2")  ) {                        \
+    stack_depth++;                                                   \
+    datacat_stack[stack_depth]="h0";                                 \
+    next;                                                            \
+  } else {                                                           \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# "}"行の場合                                                        \
+$0~/^}$/{                                                            \
+  # データ種別スタックが空でなく最上位が"h0:ハッシュ(キー未取得)"、  \
+  # "h3:ハッシュ(値取得済)"であることを確認したら                    \
+  # データ種別スタック、キー名スタック双方をpop                      \
+  # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             \
+  # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       \
+  # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   \
+  if ((stack_depth>0)                       &&                       \
+      ((datacat_stack[stack_depth]=="h0") ||                         \
+       (datacat_stack[stack_depth]=="h3")  ) ) {                     \
+    delete datacat_stack[stack_depth];                               \
+    delete keyname_stack[stack_depth];                               \
+    stack_depth--;                                                   \
+    if (stack_depth>0) {                                             \
+      if ((datacat_stack[stack_depth]=="l0") ||                      \
+          (datacat_stack[stack_depth]=="l1")  ) {                    \
+        datacat_stack[stack_depth]="l2"                              \
+      } else if (datacat_stack[stack_depth]=="h2") {                 \
+        datacat_stack[stack_depth]="h3"                              \
+      }                                                              \
+    }                                                                \
+    next;                                                            \
+  } else {                                                           \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# "["行の場合                                                        \
+$0~/^\[$/{                                                           \
+  # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  \
+  # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   \
+  # データ種別スタックに"l0:配列(初期要素値待ち)"をpush、            \
+  # およびキー名スタックに配列番号0をpush                            \
+  if ((stack_depth==0)                   ||                          \
+      (datacat_stack[stack_depth]=="l0") ||                          \
+      (datacat_stack[stack_depth]=="l1") ||                          \
+      (datacat_stack[stack_depth]=="h2")  ) {                        \
+    stack_depth++;                                                   \
+    datacat_stack[stack_depth]="l0";                                 \
+    keyname_stack[stack_depth]='"$fn"';                              \
+    next;                                                            \
+  } else {                                                           \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# "]"行の場合                                                        \
+$0~/^\]$/{                                                           \
+  # データ種別スタックが空でなく最上位が"l0:配列(初期要素値待ち)"、  \
+  # "l2:配列(値取得直後)"であることを確認したら                      \
+  # データ種別スタック、キー名スタック双方をpop                      \
+  # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             \
+  # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       \
+  # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   \
+  if ((stack_depth>0)                       &&                       \
+      ((datacat_stack[stack_depth]=="l0") ||                         \
+       (datacat_stack[stack_depth]=="l2")  ) ) {                     \
+    '"$unoptli"'print_keys_and_value("");                            \
+    delete datacat_stack[stack_depth];                               \
+    delete keyname_stack[stack_depth];                               \
+    stack_depth--;                                                   \
+    if (stack_depth>0) {                                             \
+      if ((datacat_stack[stack_depth]=="l0") ||                      \
+          (datacat_stack[stack_depth]=="l1")  ) {                    \
+        datacat_stack[stack_depth]="l2"                              \
+      } else if (datacat_stack[stack_depth]=="h2") {                 \
+        datacat_stack[stack_depth]="h3"                              \
+      }                                                              \
+    }                                                                \
+    next;                                                            \
+  } else {                                                           \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# ":"行の場合                                                        \
+$0~/^:$/{                                                            \
+  # データ種別スタックが空でなく                                     \
+  # 最上位が"h1:ハッシュ(キー取得済)"であることを確認したら          \
+  # データ種別スタック最上位を"h2:ハッシュ(値待ち)"に変更            \
+  if ((stack_depth>0)                   &&                           \
+      (datacat_stack[stack_depth]=="h1") ) {                         \
+    datacat_stack[stack_depth]="h2";                                 \
+    next;                                                            \
+  } else {                                                           \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# ","行の場合                                                        \
+$0~/^,$/{                                                            \
+  # 1)データ種別スタックが空でないことを確認                         \
+  if (stack_depth==0) {                                              \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+  '"$unoptli"'# 1.5)-liオプション有効時の動作                        \
+  '"$unoptli"'if (substr(datacat_stack[stack_depth],1,1)=="l") {     \
+  '"$unoptli"'  print_keys_and_value("");                            \
+  '"$unoptli"'}                                                      \
+  # 2)データ種別スタック最上位値によって分岐                         \
+  # 2a)"l2:配列(値取得直後)"の場合                                   \
+  if (datacat_stack[stack_depth]=="l2") {                            \
+    # 2a-1)データ種別スタック最上位を"l1:配列(値待ち)"に変更         \
+    datacat_stack[stack_depth]="l1";                                 \
+    # 2a-2)キー名スタックに入っている配列番号を+1                    \
+    keyname_stack[stack_depth]++;                                    \
+    next;                                                            \
+  # 2b)"h3:ハッシュ(値取得済)"の場合                                 \
+  } else if (datacat_stack[stack_depth]=="h3") {                     \
+    # 2b-1)データ種別スタック最上位を"h0:ハッシュ(キー未取得)"に変更 \
+    datacat_stack[stack_depth]="h0";                                 \
+    next;                                                            \
+  # 2c)その他の場合                                                  \
+  } else {                                                           \
+    # 2c-1)エラー                                                    \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# それ以外の行(値の入っている行)の場合                               \
+{                                                                    \
+  # 1)データ種別スタックが空でないことを確認                         \
+  if (stack_depth==0) {                                              \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+  # 2)DQ囲みになっている場合は予めそれを除去しておく                 \
+  value=(match($0,/^".*"$/))?substr($0,2,RLENGTH-2):$0;              \
+  # 3)事前にエスケープしていたDQをここで元に戻す                     \
+  gsub(DQ,"\\\"",value);                                             \
+  # 4)データ種別スタック最上位値によって分岐                         \
+  # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          \
+  if ((datacat_stack[stack_depth]=="l0") ||                          \
+        (datacat_stack[stack_depth]=="l1")  ) {                      \
+    # 4a-1)キー名スタックと値を表示                                  \
+    print_keys_and_value(value);                                     \
+    # 4a-2)データ種別スタック最上位を"l2:配列(値取得直後)"に変更     \
+    datacat_stack[stack_depth]="l2";                                 \
+  # 4b)"h0:ハッシュ(キー未取得)"の場合                               \
+  } else if (datacat_stack[stack_depth]=="h0") {                     \
+    # 4b-1)値をキー名としてキー名スタックにpush                      \
+    gsub(/ /,alt_spc_in_key,value);                                  \
+    keyname_stack[stack_depth]=value;                                \
+    # 4b-2)データ種別スタック最上位を"h1:ハッシュ(キー取得済)"に変更 \
+    datacat_stack[stack_depth]="h1";                                 \
+  # 4c)"h2:ハッシュ(値待ち)"の場合                                   \
+  } else if (datacat_stack[stack_depth]=="h2") {                     \
+    # 4c-1)キー名スタックと値を表示                                  \
+    print_keys_and_value(value);                                     \
+    # 4a-2)データ種別スタック最上位を"h3:ハッシュ(値取得済)"に変更   \
+    datacat_stack[stack_depth]="h3";                                 \
+  # 4d)その他の場合                                                  \
+  } else {                                                           \
+    # 4d-1)エラー                                                    \
+    _assert_exit=1;                                                  \
+    exit _assert_exit;                                               \
+  }                                                                  \
+}                                                                    \
+# 最終処理                                                           \
+END {                                                                \
+  if (_assert_exit) {                                                \
+    print "Invalid JSON format", LF > "/dev/stderr";                 \
+    line1="keyname-stack:";                                          \
+    line2="datacat-stack:";                                          \
+    for (i=1;i<=stack_depth;i++) {                                   \
+      line1=line1 sprintf("{%s}",keyname_stack[i]);                  \
+      line2=line2 sprintf("{%s}",datacat_stack[i]);                  \
+    }                                                                \
+    print line1, LF, line2, LF > "/dev/stderr";                      \
+  }                                                                  \
+  exit _assert_exit;                                                 \
+}                                                                    \
+# キー名一覧と値を表示する関数                                       \
+function print_keys_and_value(str) {                                 \
+  print root_symbol;                                                 \
+  for (i=1;i<=stack_depth;i++) {                                     \
+    if (substr(datacat_stack[i],1,1)=="l") {                         \
+      print list_prefix, keyname_stack[i], list_suffix;              \
+    } else {                                                         \
+      print key_delimit, keyname_stack[i];                           \
+    }                                                                \
+  }                                                                  \
+  print " ", str, LF;                                                \
+}                                                                    \
+'
