@@ -132,7 +132,7 @@ fi
 [ -z "$xpath_file" ] && xpath_file='-'
 
 # ===== テンポラリーファイルを確保する ===============================
-which mktemp 2>/dev/null || {
+which mktemp >/dev/null 2>&1 || {
   mktemp_fileno=0
   mktemp() {
     local mktemp_filename
