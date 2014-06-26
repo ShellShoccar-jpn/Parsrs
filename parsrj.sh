@@ -34,7 +34,7 @@
 #         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 25, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 27, 2014
 
 
 DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
@@ -60,7 +60,7 @@ for arg in "$@"; do
   elif [ \( "_${arg#-ls}" != "_$arg" \) -a \( -z "$file" \) ]; then
     ls=${arg#-ls}
   elif [ \( "_${arg#-fn}" != "_$arg" \) -a \( -z "$file" \) -a \
-         -n "$(echo -n "_${arg#-fn}" | grep '^_[0-9]\+$')"     ]; then
+         -n "$(echo -n "_${arg#-fn}" | grep '^_[0-9]\{1,\}$')" ]; then
     fn=${arg#-fn}
     fn=$((fn+0))
   elif [ \( "_$arg" = '_-li' \) -a \( -z "$file" \) ]; then
