@@ -25,18 +25,18 @@
 #      (上記の例では、最初の3行が /foo/bar[1]...、後の3行が/foo/bar[2]...、と
 #      なっていてもよい。)
 #
-# Usage   : xpathread.sh [-d<str>] [-i<str>] <XPath> [XPath_indexed_data]
-# Options : -d is for setting the substitution of blank (default:"_")
-#         : -i is for setting the substitution of null (default:"@")
+# Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
+# Options : -s is for setting the substitution of blank (default:"_")
+#         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 12, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 27, 2014
 
 
 # ===== 引数を解析する ===============================================
-dopt='_'
-iopt='@'
-popt=''
+opts='_'
+optn='@'
+optp=''
 xpath=''
 xpath_file=''
 optmode=''
@@ -46,43 +46,43 @@ for arg in "$@"; do
   i=$((i+1))
   if [ -z "$optmode" ]; then
     case "$arg" in
-      -[dip]*)
+      -[sdnip]*)
         ret=$(echo "_${arg#-}" |
               awk '{
-                d = "_";
-                i = "_";
-                p = "_";
+                opts = "_";
+                optn = "_";
+                optp = "_";
                 opt_str = "";
                 for (n=2; n<=length($0); n++) {
                   s = substr($0,n,1);
-                  if (s == "d") {
-                    d = "d";
+                  if ((s == "s") || (s == "d")) {
+                    opts = "s";
                     opt_str = substr($0, n+1);
                     break;
-                  } else if (s == "i") {
-                    i = "i";
+                  } else if ((s == "n") || (s == "i")) {
+                    optn = "n";
                     opt_str = substr($0, n+1);
                     break;
                   } else if (s == "p") {
-                    p = "p";
+                    optp = "p";
                   }
                 }
-                printf("%s%s%s %s", d, i, p, opt_str);
+                printf("%s%s%s %s", opts, optn, optp, opt_str);
               }')
         ret1=${ret%% *}
         ret2=${ret#* }
-        if [ "${ret1#*d}" != "$ret1" ]; then
-          dopt=$ret2
+        if [ "${ret1#*s}" != "$ret1" ]; then
+          opts=$ret2
         fi
-        if [ "${ret1#*i}" != "$ret1" ]; then
+        if [ "${ret1#*n}" != "$ret1" ]; then
           if [ -n "$ret2" ]; then
-            iopt=$ret2
+            optn=$ret2
           else
-            optmode='i'
+            optmode='n'
           fi
         fi
         if [ "${ret1#*p}" != "$ret1" ]; then
-          popt='#'
+          optp='#'
         fi
         ;;
       *)
@@ -111,8 +111,8 @@ for arg in "$@"; do
         fi
         ;;
     esac
-  elif [ "$optmode" = 'i' ]; then
-    iopt=$arg
+  elif [ "$optmode" = 'n' ]; then
+    optn=$arg
     optmode=''
   else
     printhelp=1
@@ -121,17 +121,27 @@ for arg in "$@"; do
 done
 [ -n "$xpath"  ] || printhelp=1
 if [ $printhelp -ne 0 ]; then
-  cat <<__USAGE 1>&2
-Usage   : ${0##*/} [-d<str>] [-i<str>] <XPath> [XPath_indexed_data]
-Options : -d is for setting the substitution of blank (default:"_")
-        : -i is for setting the substitution of null (default:"@")
-        : -p permits to add the properties of the tag to the table
+  cat <<-__USAGE 1>&2
+	Usage   : ${0##*/} [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
+	Options : -s is for setting the substitution of blank (default:"_")
+	        : -n is for setting the substitution of null (default:"@")
+	        : -p permits to add the properties of the tag to the table
 __USAGE
   exit 1
 fi
 [ -z "$xpath_file" ] && xpath_file='-'
 
 # ===== テンポラリーファイルを確保する ===============================
+which mktemp 2>/dev/null || {
+  mktemp_fileno=0
+  mktemp() {
+    local mktemp_filename
+    mktemp_filename="/tmp/${0##*/}.$$.$mktemp_fileno"
+    mktemp_fileno=$((mktemp_fileno+1))
+    touch $mktemp_filename
+    echo $mktemp_filename
+  }
+}
 tempfile=$(mktemp -t "${0##*/}.XXXXXXXX")
 if [ $? -eq 0 ]; then
   trap "rm -f $tempfile; exit" EXIT HUP INT QUIT ALRM SEGV TERM
@@ -168,7 +178,7 @@ awk '
       f1 = substr(f1, 2);
       j = index(f1, "/");
       if (j != 0) {
-         '"$popt"'continue;
+         '"$optp"'continue;
          if (substr(f1,j+1,1) != "@") {
            continue;
          }
@@ -178,7 +188,7 @@ awk '
         f2 = "";
       } else {
         f2 = substr(line, i+1);
-        gsub(/[[:blank:]]/, "'"$dopt"'", f2);
+        gsub(/[[:blank:]]/, "'"$opts"'", f2);
       }
       print f1, f2;
     }
@@ -244,10 +254,10 @@ awk -v tags="$tags" '
       } else {
         # b."/"行(一周した印)なら一行出力し、その行の保持データをクリア
         if (numoftags >= 1) {
-          print      (1 in fields) ? fields[1] : "'"$iopt"'";
+          print      (1 in fields) ? fields[1] : "'"$optn"'";
         }
         for (i=2; i<=numoftags; i++) {
-          print " ", (i in fields) ? fields[i] : "'"$iopt"'";
+          print " ", (i in fields) ? fields[i] : "'"$optn"'";
         }
         print LF;
         split("", fields);
