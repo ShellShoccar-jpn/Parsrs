@@ -30,8 +30,15 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 27, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 28, 2014
 
+
+# ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
+if awk 'BEGIN{a[1]=1;b=length(a)}' 2>/dev/null; then
+  arlen='length'
+else
+  arlen='arlen'
+fi
 
 # ===== 引数を解析する ===============================================
 opts='_'
@@ -226,11 +233,14 @@ tags=$(awk '                              \
 
 # ===== タグ表を生成する =============================================
 awk -v tags="$tags" '
+  # the alternative length function for array variable
+  function arlen(ar,i,l){for(i in ar){l++;}return l;}
+
   BEGIN {
     # タグ名と出現順序を登録
     split(tags, order2tag);
     split(""  , tag2order);
-    numoftags = length(order2tag);
+    numoftags = '$arlen'(order2tag);
     for (i=1; i<=numoftags; i++) {
       tag2order[order2tag[i]] = i;
     }

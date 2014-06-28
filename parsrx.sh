@@ -36,7 +36,7 @@
 #           -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
 #           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 12, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 28, 2013
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
@@ -54,6 +54,13 @@ LF=$( printf '\177') # 改行(タグ内の引用符外は除く)のエスケー�
 
 T=$( printf '\011')             # タブ(エスケープ用ではない)
 N=$( printf '\\\012_');N=${N%_} # sedコマンド用の改行(エスケープ用ではない)
+
+# 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる
+if awk 'BEGIN{a[1]=1;b=length(a)}' 2>/dev/null; then
+  arlen='length'
+else
+  arlen='arlen'
+fi
 
 optlf=''
 unoptc='#'
@@ -238,6 +245,9 @@ sed 's/'"$SCT"'<\([^'"$ECT"']*\)'"$ECT"'>/'"$N$SCT"'\1'"$N"'/g'                |
 #   ・先頭にタグ行or属性行識別子をつけて                                       #
 #   ・属性行を先にし、タグ行は最後にする                                       #
 awk '                                                                          \
+  # the alternative length function for array variable                         \
+  function arlen(ar,i,l){for(i in ar){l++;}return l;}                          \
+                                                                               \
   BEGIN {                                                                      \
     OFS = "";                                                                  \
     Tag = "'"$SCT"'"; # タグ行識別子として使う文字..残す                       \
@@ -250,7 +260,7 @@ awk '                                                                          \
         tagname = substr(items[1],2);                                          \
         sub(/\/$/, "", tagname);                                               \
         # 1-1.単独タグかどうかを検出                                           \
-        i = length(items);                                                     \
+        i = '$arlen'(items);                                                   \
         if (match(items[i],/\/$/)) {                                           \
           singletag = 1;                                                       \
           if (RSTART == 1) {                                                   \
