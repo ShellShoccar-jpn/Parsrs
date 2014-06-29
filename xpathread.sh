@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 28, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 29, 2014
 
 
 # ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
@@ -145,8 +145,9 @@ which mktemp >/dev/null 2>&1 || {
     local mktemp_filename
     mktemp_filename="/tmp/${0##*/}.$$.$mktemp_fileno"
     mktemp_fileno=$((mktemp_fileno+1))
-    touch $mktemp_filename
-    echo $mktemp_filename
+    touch "$mktemp_filename"
+    chmod 600 "$mktemp_filename"
+    echo "$mktemp_filename"
   }
 }
 tempfile=$(mktemp -t "${0##*/}.XXXXXXXX")
