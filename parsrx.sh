@@ -6,13 +6,14 @@
 #    (例)
 #     <foo>
 #       あはは
-#       <bar hoge="ほげ" piyo="ぴよ">えへへ<br /></bar>
+#       <bar hoge="ほげ" piyo="ぴよ">えへへ<br /><script></script></bar>
 #       いひひ
 #     </foo>
 #     ↓
 #     /foo/bar/@hoge ほげ
 #     /foo/bar/@piyo ぴよ
-#     /foo/bar/br 
+#     /foo/bar/br
+#     /foo/bar/script 
 #     /foo/bar えへへ
 #     /foo \n  あはは\n  \n  いひひ\n
 #     ◇第1列はXMLパス名(XPath形式：区切りは"/"、ただし属性名手前には"@")
@@ -23,6 +24,8 @@
 #       パイプすれば、前後の余計な改行やインデントを取り除け、さらに
 #       sed 's/\\n/\
 #       /g' などにパイプすれば、改行も元の姿に復元できる。
+#     ◇単独タグ(<br />など)の場合は、第1列の後にスペースが付かない。一方、
+#       別途閉じタグがある(<script></script>など)の場合はスペースが付く。
 #    (注意)
 #    ・XMLに準拠していないもの(記号がヘン,タグが正しく入れ子になっていない等)を
 #      与えられた場合は正常に正規化されることを保証できない
@@ -34,9 +37,10 @@
 # Usage   : parsrx.sh [-c] [-n] [-lf<str>] [XML_file]
 # Options : -c  はタグ内に含まれる子タグの可視化
 #           -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
-#           -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
+#           -lf は値として含まれている改行を表現する文字列指定(デフォルトは
+#               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 28, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Aug 23, 2014
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
@@ -63,6 +67,7 @@ else
 fi
 
 optlf=''
+bsesc='\\'
 unoptc='#'
 unoptn='#'
 file=''
@@ -109,7 +114,7 @@ Options : -c  はタグ内に含まれる子タグの可視化
 __USAGE
   exit 1
 fi
-[ -z "$optlf" ] && optlf='\\n'
+[ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
 [ -z "$file"  ] && file='-'
 
 
@@ -292,7 +297,7 @@ awk '                                                                          \
         print Tag,      tagname;                                               \
         # 1-4.単独タグだった場合は閉じタグ行を追加                             \
         if (singletag) {                                                       \
-          print Tag, "/", tagname;                                             \
+          print Tag, "//", tagname;  # (後で区別できるように"//"とする)        \
         }                                                                      \
       } else {                                                                 \
         # 2.タグ行ではない場合....、そのまま出力                               \
@@ -332,9 +337,9 @@ awk '                                                                          \
             print "/", s;                                                      \
             '"$unoptn"'print "[", tagrept[i "/" s], "]";                       \
           }                                                                    \
-          print " ";                                                           \
-          for (i=1; i<=currentpathitems; i++) {                                \
-            print  tagvals[currentdepth "," i];                                \
+          if (substr(line,3,1) != "/") {print " ";} #←単独タグだった場合は、  \
+          for (i=1; i<=currentpathitems; i++) {     #  タグパスの後ろに        \
+            print  tagvals[currentdepth "," i];     #  " "をつけない。         \
             delete tagvals[currentdepth "," i];                                \
           }                                                                    \
           print LF;                                                            \
@@ -410,4 +415,9 @@ sed 's/'"$SLS"'/\//g'                                                          |
 sed 's/'"$SPC"'/ /g'                                                           |
 sed 's/'"$TAB"'/'"$T"'/g'                                                      |
 # 2)エスケープ改行を、引数で指定された(あるいはデフォルトの)文字列に変換する   #
+if [ "_$bsesc" != '_\\' ]; then                                                #
+  sed 's/\\/'"$bsesc"'/g'                                                      #
+else                                                                           #
+  cat                                                                          #
+fi                                                                             |
 sed 's/'"$LF"'/'"$optlf"'/g'
