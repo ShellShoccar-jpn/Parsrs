@@ -33,8 +33,9 @@
 #         : -fn<n> は配列キー番号の開始番号(デフォルトは0)
 #         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
+#         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 27, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Aug 24, 2014
 
 
 DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
@@ -48,6 +49,8 @@ lp='['
 ls=']'
 fn=0
 unoptli='#'
+optt=''
+unoptt='#'
 for arg in "$@"; do
   if [ \( "_${arg#-sk}" != "_$arg" \) -a \( -z "$file" \) ]; then
     sk=${arg#-sk}
@@ -72,6 +75,9 @@ for arg in "$@"; do
     ls=']'
     fn=1
     unoptli=''
+  elif [ \( "_$arg" = '_-t' \) -a \( -z "$file" \) ]; then
+    optt='#'
+    unoptt=''
   elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
     file=$arg
   elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
@@ -89,6 +95,7 @@ Options : -sk<s> はキー名文字列内にあるスペースの置換文字列
         : -fn<n> は配列キー番号の開始番号(デフォルトは0)
         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
+        : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
 ____USAGE
     exit 1
   fi
@@ -317,7 +324,8 @@ $0~/^,$/{                                                            \
     exit _assert_exit;                                               \
   }                                                                  \
   # 2)DQ囲みになっている場合は予めそれを除去しておく                 \
-  value=(match($0,/^".*"$/))?substr($0,2,RLENGTH-2):$0;              \
+  '"$optt"'value=(match($0,/^".*"$/))?substr($0,2,RLENGTH-2):$0;     \
+  '"$unoptt"'value=$0;                                               \
   # 3)事前にエスケープしていたDQをここで元に戻す                     \
   gsub(DQ,"\\\"",value);                                             \
   # 4)データ種別スタック最上位値によって分岐                         \
