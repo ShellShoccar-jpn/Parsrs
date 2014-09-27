@@ -19,11 +19,11 @@
 #         sed 's/\\n/\<LF>/g' (←"<LF>"は実際には改行を表す)
 #       にパイプすれば、元データに改行を含む場合でも完全な値として取り出せる。
 #
-# Usage: parsrc.sh [-lf<printf_str>] [CSV_file]
-# Options : -lf は値として含まれている改行を表現する文字列をprintf形式で指定
-#           (デフォルト値は"\\n"。つまり値として改行があると"\n"と表示される)
+# Usage: parsrc.sh [-lf<str>] [CSV_file]
+# Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
+#               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : May 25, 2013
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Sep 28, 2014
 
 
 SO=$(printf '\016')              # ダブルクォーテーション*2のエスケープ印
@@ -32,21 +32,17 @@ RS=$(printf '\036')              # 1列1行化後に元々の改行を示すた�
 US=$(printf '\037')              # 1列1行化後に元々の列区切りを示すための印
 LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの
 
-optlf='\\n'
+optlf=''
+bsesc='\\'
 file=''
 printhelp=0
 i=0
 for arg in "$@"; do
   i=$((i+1))
   if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    optlf=$(printf "_${arg#-lf}_"    |
-            tr -d "$SI$RS$US"        |
-            tr '\n' $SI              |
-            sed 's/^_//'             |
-            sed 's/\\/\\\\/g'        |
-            sed 's/&/\\\&/g'         |
-            sed 's/\//\\\//g'        |
-            sed 's/'$SI'/\\'"$LF"'/g')
+    optlf=$(printf '%s' "${arg#-lf}_" |
+            tr -d '\n'                |
+            sed 's/\([\&/]\)/\\\1/g'  )
     optlf=${optlf%_}
   elif [ \( $i -eq $# \) -a \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
     file='-'
@@ -59,13 +55,14 @@ for arg in "$@"; do
   fi
 done
 if [ $printhelp -ne 0 ]; then
-  cat <<__USAGE
-Usage : ${0##*/} [-lf<printf_str>] [CSV_file] 1>&2
-Options : -lf は値として含まれている改行を表現する文字列をprintf形式で指定
-          (デフォルト値は"\\\n"。つまり値として改行があると"\\n"と表示される)
+  cat <<-__USAGE
+	Usage : ${0##*/} [-lf<str>] [CSV_file] 1>&2
+	Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
+	              "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 __USAGE
   exit 1
 fi
+[ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
 [ -z "$file"  ] && file='-'
 
 # === データの流し込み ============================================= #
@@ -129,9 +126,6 @@ sed 's/^[[:blank:]]*""[[:blank:]]*$//'                               |
 # (3/3)""(二重)を一重に戻す                                          #
 sed 's/""/"/g'                                                       |
 #                                                                    #
-# === 値としての改行のエスケープ(SI)を代替文字列に変換 ============= #
-sed 's/'$SI'/'"$optlf"'/g'                                           |
-#                                                                    #
 # === 先頭に行番号と列番号をつける ================================= #
 awk '                                                                \
   BEGIN{                                                             \
@@ -148,4 +142,12 @@ awk '                                                                \
       }                                                              \
     }                                                                \
   }                                                                  \
-'
+'                                                                    |
+#                                                                    #
+# === 値としての改行のエスケープ(SI)を代替文字列に変換 ============= #
+if [ "_$bsesc" != '_\\' ]; then                                      #
+  sed 's/\\/'"$bsesc"'/g'                                            #
+else                                                                 #
+  cat                                                                #
+fi                                                                   |
+sed 's/'"$SI"'/'"$optlf"'/g'
