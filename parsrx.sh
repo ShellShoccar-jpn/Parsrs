@@ -41,6 +41,10 @@
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Sep 28, 2014
+#
+# This is a public-domain software. It measns that all of the people
+# can use this with no restrictions at all. By the way, I am fed up
+# the side effects which are broght about by the major licenses.
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字

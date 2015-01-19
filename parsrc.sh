@@ -23,7 +23,11 @@
 # Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Sep 28, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 19, 2015
+#
+# This is a public-domain software. It measns that all of the people
+# can use this with no restrictions at all. By the way, I am fed up
+# the side effects which are broght about by the major licenses.
 
 
 SO=$(printf '\016')              # ダブルクォーテーション*2のエスケープ印
@@ -67,6 +71,9 @@ fi
 
 # === データの流し込み ============================================= #
 cat "$file"                                                          |
+#                                                                    #
+# === 行末のCRを取り除く =========================================== #
+sed "s/$(printf '\r')\$//"                                           |
 #                                                                    #
 # === 値としてのダブルクォーテーションをエスケープ ================= #
 #     (但しnull囲みの""も区別が付かず、エスケープされる)             #

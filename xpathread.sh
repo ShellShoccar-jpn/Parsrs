@@ -31,6 +31,10 @@
 #         : -p permits to add the properties of the tag to the table
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 29, 2014
+#
+# This is a public-domain software. It measns that all of the people
+# can use this with no restrictions at all. By the way, I am fed up
+# the side effects which are broght about by the major licenses.
 
 
 # ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==

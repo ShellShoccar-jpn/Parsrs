@@ -36,6 +36,10 @@
 #         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
 #
 # Written by Rich Mikan(richmikan[at]richlab.org) / Date : Sep 27, 2014
+#
+# This is a public-domain software. It measns that all of the people
+# can use this with no restrictions at all. By the way, I am fed up
+# the side effects which are broght about by the major licenses.
 
 
 DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
