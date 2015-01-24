@@ -35,12 +35,17 @@
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Sep 27, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
 # the side effects which are broght about by the major licenses.
 
+
+set -u
+PATH=/bin:/usr/bin
+export LC_ALL=C
+export LANG=C
 
 DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
@@ -104,317 +109,285 @@ ____USAGE
     exit 1
   fi
 done
-sk=$(echo -n "_$sk"                |
-     od -A n -t o1                 |
-     tr -d '\n'                    |
-     sed 's/^[[:blank:]]*137//'    |
-     sed 's/[[:blank:]]*$//'       |
-     sed 's/[[:blank:]]\{1,\}/\\/g')
-rt=$(echo -n "_$rt"                |
-     od -A n -t o1                 |
-     tr -d '\n'                    |
-     sed 's/^[[:blank:]]*137//'    |
-     sed 's/[[:blank:]]*$//'       |
-     sed 's/[[:blank:]]\{1,\}/\\/g')
-kd=$(echo -n "_$kd"                |
-     od -A n -t o1                 |
-     tr -d '\n'                    |
-     sed 's/^[[:blank:]]*137//'    |
-     sed 's/[[:blank:]]*$//'       |
-     sed 's/[[:blank:]]\{1,\}/\\/g')
-lp=$(echo -n "_$lp"                |
-     od -A n -t o1                 |
-     tr -d '\n'                    |
-     sed 's/^[[:blank:]]*137//'    |
-     sed 's/[[:blank:]]*$//'       |
-     sed 's/[[:blank:]]\{1,\}/\\/g')
-ls=$(echo -n "_$ls"                |
-     od -A n -t o1                 |
-     tr -d '\n'                    |
-     sed 's/^[[:blank:]]*137//'    |
-     sed 's/[[:blank:]]*$//'       |
-     sed 's/[[:blank:]]\{1,\}/\\/g')
+export sk
+export rt
+export kd
+export lp
+export ls
 [ -z "$file" ] && file='-'
 
 
-# === データの流し込み ============================================= #
-cat "$file"                                                          |
-#                                                                    #
-# === 値としてのダブルクォーテーション(DQ)をエスケープしつつ ======= #
-#     ダブルクォーテーションで囲まれた"～"区間を単独行にする         #
-tr '"' '\n'                                                          |
-awk '                                                                \
-BEGIN{                                                               \
-  OFS=""; ORS="";                                                    \
-  LF = sprintf("\n");                                                \
-  nextl = 0; # 次行の種類 0:記号行,1:データ行(最初),2:データ行(続き) \
-  while(getline line) {                                              \
-    if        (nextl == 0) {                                         \
-      print line, LF;                                                \
-      nextl = 1;                                                     \
-    } else if (nextl == 1) {                                         \
-      if (! match(line,/^(\\\\)*\\$|[^\\](\\\\)*\\$/)) {             \
-        # 行末に奇数個の\がなかった(→データとしてのDQはなかった場合)\
-        print "\"", line, "\"", LF;                                  \
-        nextl = 0;                                                   \
-      } else {                                                       \
-        # 行末に奇数個の\があった(→データとしてのDQがあった場合)    \
-        print "\"", substr(line,1,length(line)-1), "'$DQ'";          \
-        nextl = 2;                                                   \
-      }                                                              \
-    } else                 {                                         \
-      if (! match(line,/^(\\\\)*\\$|[^\\](\\\\)*\\$/)) {             \
-        # 行末に奇数個の\がなかった(→データとしてのDQはなかった場合)\
-        print line, "\"", LF;                                        \
-        nextl = 0;                                                   \
-      } else {                                                       \
-        # 行末に奇数個の\があった(→データとしてのDQがあった場合)    \
-        print substr(line,1,length(line)-1), "'$DQ'";                \
-        nextl = 2;                                                   \
-      }                                                              \
-    }                                                                \
-  }                                                                  \
-}                                                                    \
-'                                                                    |
-#                                                                    #
-# === DQ始まり以外の行の"{","}","[","]",":",","の前後に改行を挿入 == #
-sed "/^[^\"]/s/\([][{}:,]\)/$LF\1$LF/g"                              |
-#                                                                    #
-# === 無駄な空行は予め取り除いておく =============================== #
-grep -v '^[[:blank:]]*$'                                             |
-#                                                                    #
-# === 行頭の記号を見ながら状態遷移させて処理(*1,strict版*2) ======== #
-# (*1 エスケープしたDQもここで元に戻す)                              #
-# (*2 JSONの厳密なチェックを省略するならもっと簡素で高速にできる)    #
-awk '                                                                \
-BEGIN {                                                              \
-  # キー文字列内にあるスペースの置換文字列をシェル変数に基づいて定義 \
-  alt_spc_in_key=sprintf("'"$sk"'");                                 \
-  # 階層表現文字列をシェル変数に基づいて定義する                     \
-  root_symbol=sprintf("'"$rt"'");                                    \
-  key_delimit=sprintf("'"$kd"'");                                    \
-  list_prefix=sprintf("'"$lp"'");                                    \
-  list_suffix=sprintf("'"$ls"'");                                    \
-  # データ種別スタックの初期化                                       \
-  datacat_stack[0]="";                                               \
-  delete datacat_stack[0]                                            \
-  # キー名スタックの初期化                                           \
-  keyname_stack[0]="";                                               \
-  delete keyname_stack[0]                                            \
-  # スタックの深さを0に設定                                          \
-  stack_depth=0;                                                     \
-  # エラー終了検出変数を初期化                                       \
-  _assert_exit=0;                                                    \
-  # 同期信号キャラクタ(事前にエスケープしていたDQを元に戻すため)     \
-  DQ=sprintf("\026");                                                \
-  # 改行キャラクター                                                 \
-  LF =sprintf("\n");                                                 \
-  # print文の自動フィールドセパレーター挿入と文末自動改行をなくす    \
-  OFS="";                                                            \
-  ORS="";                                                            \
-}                                                                    \
-# "{"行の場合                                                        \
-$0~/^{$/{                                                            \
-  # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  \
-  # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   \
-  # データ種別スタックに"h0:ハッシュ(キー未取得)"をpush              \
-  if ((stack_depth==0)                   ||                          \
-      (datacat_stack[stack_depth]=="l0") ||                          \
-      (datacat_stack[stack_depth]=="l1") ||                          \
-      (datacat_stack[stack_depth]=="h2")  ) {                        \
-    stack_depth++;                                                   \
-    datacat_stack[stack_depth]="h0";                                 \
-    next;                                                            \
-  } else {                                                           \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# "}"行の場合                                                        \
-$0~/^}$/{                                                            \
-  # データ種別スタックが空でなく最上位が"h0:ハッシュ(キー未取得)"、  \
-  # "h3:ハッシュ(値取得済)"であることを確認したら                    \
-  # データ種別スタック、キー名スタック双方をpop                      \
-  # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             \
-  # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       \
-  # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   \
-  if ((stack_depth>0)                       &&                       \
-      ((datacat_stack[stack_depth]=="h0") ||                         \
-       (datacat_stack[stack_depth]=="h3")  ) ) {                     \
-    delete datacat_stack[stack_depth];                               \
-    delete keyname_stack[stack_depth];                               \
-    stack_depth--;                                                   \
-    if (stack_depth>0) {                                             \
-      if ((datacat_stack[stack_depth]=="l0") ||                      \
-          (datacat_stack[stack_depth]=="l1")  ) {                    \
-        datacat_stack[stack_depth]="l2"                              \
-      } else if (datacat_stack[stack_depth]=="h2") {                 \
-        datacat_stack[stack_depth]="h3"                              \
-      }                                                              \
-    }                                                                \
-    next;                                                            \
-  } else {                                                           \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# "["行の場合                                                        \
-$0~/^\[$/{                                                           \
-  # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  \
-  # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   \
-  # データ種別スタックに"l0:配列(初期要素値待ち)"をpush、            \
-  # およびキー名スタックに配列番号0をpush                            \
-  if ((stack_depth==0)                   ||                          \
-      (datacat_stack[stack_depth]=="l0") ||                          \
-      (datacat_stack[stack_depth]=="l1") ||                          \
-      (datacat_stack[stack_depth]=="h2")  ) {                        \
-    stack_depth++;                                                   \
-    datacat_stack[stack_depth]="l0";                                 \
-    keyname_stack[stack_depth]='"$fn"';                              \
-    next;                                                            \
-  } else {                                                           \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# "]"行の場合                                                        \
-$0~/^\]$/{                                                           \
-  # データ種別スタックが空でなく最上位が"l0:配列(初期要素値待ち)"、  \
-  # "l2:配列(値取得直後)"であることを確認したら                      \
-  # データ種別スタック、キー名スタック双方をpop                      \
-  # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             \
-  # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       \
-  # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   \
-  if ((stack_depth>0)                       &&                       \
-      ((datacat_stack[stack_depth]=="l0") ||                         \
-       (datacat_stack[stack_depth]=="l2")  ) ) {                     \
-    '"$unoptli"'print_keys_and_value("");                            \
-    delete datacat_stack[stack_depth];                               \
-    delete keyname_stack[stack_depth];                               \
-    stack_depth--;                                                   \
-    if (stack_depth>0) {                                             \
-      if ((datacat_stack[stack_depth]=="l0") ||                      \
-          (datacat_stack[stack_depth]=="l1")  ) {                    \
-        datacat_stack[stack_depth]="l2"                              \
-      } else if (datacat_stack[stack_depth]=="h2") {                 \
-        datacat_stack[stack_depth]="h3"                              \
-      }                                                              \
-    }                                                                \
-    next;                                                            \
-  } else {                                                           \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# ":"行の場合                                                        \
-$0~/^:$/{                                                            \
-  # データ種別スタックが空でなく                                     \
-  # 最上位が"h1:ハッシュ(キー取得済)"であることを確認したら          \
-  # データ種別スタック最上位を"h2:ハッシュ(値待ち)"に変更            \
-  if ((stack_depth>0)                   &&                           \
-      (datacat_stack[stack_depth]=="h1") ) {                         \
-    datacat_stack[stack_depth]="h2";                                 \
-    next;                                                            \
-  } else {                                                           \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# ","行の場合                                                        \
-$0~/^,$/{                                                            \
-  # 1)データ種別スタックが空でないことを確認                         \
-  if (stack_depth==0) {                                              \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-  '"$unoptli"'# 1.5)-liオプション有効時の動作                        \
-  '"$unoptli"'if (substr(datacat_stack[stack_depth],1,1)=="l") {     \
-  '"$unoptli"'  print_keys_and_value("");                            \
-  '"$unoptli"'}                                                      \
-  # 2)データ種別スタック最上位値によって分岐                         \
-  # 2a)"l2:配列(値取得直後)"の場合                                   \
-  if (datacat_stack[stack_depth]=="l2") {                            \
-    # 2a-1)データ種別スタック最上位を"l1:配列(値待ち)"に変更         \
-    datacat_stack[stack_depth]="l1";                                 \
-    # 2a-2)キー名スタックに入っている配列番号を+1                    \
-    keyname_stack[stack_depth]++;                                    \
-    next;                                                            \
-  # 2b)"h3:ハッシュ(値取得済)"の場合                                 \
-  } else if (datacat_stack[stack_depth]=="h3") {                     \
-    # 2b-1)データ種別スタック最上位を"h0:ハッシュ(キー未取得)"に変更 \
-    datacat_stack[stack_depth]="h0";                                 \
-    next;                                                            \
-  # 2c)その他の場合                                                  \
-  } else {                                                           \
-    # 2c-1)エラー                                                    \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# それ以外の行(値の入っている行)の場合                               \
-{                                                                    \
-  # 1)データ種別スタックが空でないことを確認                         \
-  if (stack_depth==0) {                                              \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-  # 2)DQ囲みになっている場合は予めそれを除去しておく                 \
-  '"$optt"'value=(match($0,/^".*"$/))?substr($0,2,RLENGTH-2):$0;     \
-  '"$unoptt"'value=$0;                                               \
-  # 3)事前にエスケープしていたDQをここで元に戻す                     \
-  gsub(DQ,"\\\"",value);                                             \
-  # 4)データ種別スタック最上位値によって分岐                         \
-  # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          \
-  if ((datacat_stack[stack_depth]=="l0") ||                          \
-        (datacat_stack[stack_depth]=="l1")  ) {                      \
-    # 4a-1)キー名スタックと値を表示                                  \
-    print_keys_and_value(value);                                     \
-    # 4a-2)データ種別スタック最上位を"l2:配列(値取得直後)"に変更     \
-    datacat_stack[stack_depth]="l2";                                 \
-  # 4b)"h0:ハッシュ(キー未取得)"の場合                               \
-  } else if (datacat_stack[stack_depth]=="h0") {                     \
-    # 4b-1)値をキー名としてキー名スタックにpush                      \
-    gsub(/ /,alt_spc_in_key,value);                                  \
-    keyname_stack[stack_depth]=value;                                \
-    # 4b-2)データ種別スタック最上位を"h1:ハッシュ(キー取得済)"に変更 \
-    datacat_stack[stack_depth]="h1";                                 \
-  # 4c)"h2:ハッシュ(値待ち)"の場合                                   \
-  } else if (datacat_stack[stack_depth]=="h2") {                     \
-    # 4c-1)キー名スタックと値を表示                                  \
-    print_keys_and_value(value);                                     \
-    # 4a-2)データ種別スタック最上位を"h3:ハッシュ(値取得済)"に変更   \
-    datacat_stack[stack_depth]="h3";                                 \
-  # 4d)その他の場合                                                  \
-  } else {                                                           \
-    # 4d-1)エラー                                                    \
-    _assert_exit=1;                                                  \
-    exit _assert_exit;                                               \
-  }                                                                  \
-}                                                                    \
-# 最終処理                                                           \
-END {                                                                \
-  if (_assert_exit) {                                                \
-    print "Invalid JSON format", LF > "/dev/stderr";                 \
-    line1="keyname-stack:";                                          \
-    line2="datacat-stack:";                                          \
-    for (i=1;i<=stack_depth;i++) {                                   \
-      line1=line1 sprintf("{%s}",keyname_stack[i]);                  \
-      line2=line2 sprintf("{%s}",datacat_stack[i]);                  \
-    }                                                                \
-    print line1, LF, line2, LF > "/dev/stderr";                      \
-  }                                                                  \
-  exit _assert_exit;                                                 \
-}                                                                    \
-# キー名一覧と値を表示する関数                                       \
-function print_keys_and_value(str) {                                 \
-  print root_symbol;                                                 \
-  for (i=1;i<=stack_depth;i++) {                                     \
-    if (substr(datacat_stack[i],1,1)=="l") {                         \
-      print list_prefix, keyname_stack[i], list_suffix;              \
-    } else {                                                         \
-      print key_delimit, keyname_stack[i];                           \
-    }                                                                \
-  }                                                                  \
-  print " ", str, LF;                                                \
-}                                                                    \
+# === データの流し込み ================================================= #
+cat "$file"                                                              |
+#                                                                        #
+# === 値としてのダブルクォーテーション(DQ)をエスケープしつつ =========== #
+#     ダブルクォーテーションで囲まれた"～"区間を単独行にする             #
+tr -d '\n'  | # 1)元の改行を取り除き、                                   |
+tr '"' '\n' | #   代わりにDQを改行にする                                 |
+awk '         # 2)値としてのDQを検出してエスケープ                       #
+BEGIN {                                                                  #
+  OFS=""; ORS=""; LF=sprintf("\n");                                      #
+  while (getline line) {                                                 #
+    len = length(line);                                                  #
+    if        (substr(line,len)!="\\"               ) {                  #
+      # a. 終端が"\"でないなら次行とは結合しない                         #
+      print line,LF;                                                     #
+    } else if (match(line,/^(\\\\)+$|[^\\](\\\\)+$/)) {                  #
+      # b. 終端に"\"が偶数個連続していても結合しない                     #
+      print line,LF;                                                     #
+    } else                                            {                  #
+      # c. 終端に"\"が奇数個連続しているなら次行と結合                   #
+      print substr(line,1,len-1),"'$DQ'";                                #
+    }                                                                    #
+  }                                                                      #
+}'                                                                       |
+awk '         # 3)元々DQで囲まれていた行(交互に現れる)を復元する         #
+BEGIN {                                                                  #
+  OFS=""; even=0;                                                        #
+  while (getline line)                   {                               #
+    if (even==0) {print      line     ;}                                 #
+    else         {print "\"",line,"\"";}                                 #
+    even=1-even;                                                         #
+  }                                                                      #
+}'                                                                       |
+#                                                                        #
+# === DQ始まり以外の行の"{","}","[","]",":",","の前後に改行を挿入 ====== #
+sed "/^[^\"]/s/\([][{}:,]\)/$LF\1$LF/g"                                  |
+#                                                                        #
+# === 無駄な空行は予め取り除いておく =================================== #
+grep -v "$(printf '^[\t ]*$')"                                           |
+#                                                                        #
+# === 行頭の記号を見ながら状態遷移させて処理(*1,strict版*2) ============ #
+# (*1 エスケープしたDQもここで元に戻す)                                  #
+# (*2 JSONの厳密なチェックを省略するならもっと簡素で高速にできる)        #
+awk '                                                                    #
+BEGIN {                                                                  #
+  # キー文字列内にあるスペースの置換文字列をシェル変数に基づいて定義     #
+  alt_spc_in_key=ENVIRON["sk"];                                          #
+  # 階層表現文字列をシェル変数に基づいて定義する                         #
+  root_symbol=ENVIRON["rt"];                                             #
+  key_delimit=ENVIRON["kd"];                                             #
+  list_prefix=ENVIRON["lp"];                                             #
+  list_suffix=ENVIRON["ls"];                                             #
+  # データ種別スタックの初期化                                           #
+  datacat_stack[0]="";                                                   #
+  delete datacat_stack[0]                                                #
+  # キー名スタックの初期化                                               #
+  keyname_stack[0]="";                                                   #
+  delete keyname_stack[0]                                                #
+  # スタックの深さを0に設定                                              #
+  stack_depth=0;                                                         #
+  # エラー終了検出変数を初期化                                           #
+  _assert_exit=0;                                                        #
+  # 同期信号キャラクタ(事前にエスケープしていたDQを元に戻すため)         #
+  DQ="'$DQ'";                                                            #
+  # 改行キャラクター                                                     #
+  LF =sprintf("\n");                                                     #
+  # print文の自動フィールドセパレーター挿入と文末自動改行をなくす        #
+  OFS="";                                                                #
+  ORS="";                                                                #
+  #                                                                      #
+  # メインループ                                                         #
+  while (getline line) {                                                 #
+    # "{"行の場合                                                        #
+    if        (line=="{") {                                              #
+      # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  #
+      # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   #
+      # データ種別スタックに"h0:ハッシュ(キー未取得)"をpush              #
+      if ((stack_depth==0)                   ||                          #
+          (datacat_stack[stack_depth]=="l0") ||                          #
+          (datacat_stack[stack_depth]=="l1") ||                          #
+          (datacat_stack[stack_depth]=="h2")  ) {                        #
+        stack_depth++;                                                   #
+        datacat_stack[stack_depth]="h0";                                 #
+        continue;                                                        #
+      } else {                                                           #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    # "}"行の場合                                                        #
+    } else if (line=="}") {                                              #
+      # データ種別スタックが空でなく最上位が"h0:ハッシュ(キー未取得)"、  #
+      # "h3:ハッシュ(値取得済)"であることを確認したら                    #
+      # データ種別スタック、キー名スタック双方をpop                      #
+      # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             #
+      # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       #
+      # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   #
+      if ((stack_depth>0)                       &&                       #
+          ((datacat_stack[stack_depth]=="h0") ||                         #
+           (datacat_stack[stack_depth]=="h3")  ) ) {                     #
+        delete datacat_stack[stack_depth];                               #
+        delete keyname_stack[stack_depth];                               #
+        stack_depth--;                                                   #
+        if (stack_depth>0) {                                             #
+          if ((datacat_stack[stack_depth]=="l0") ||                      #
+              (datacat_stack[stack_depth]=="l1")  ) {                    #
+            datacat_stack[stack_depth]="l2"                              #
+          } else if (datacat_stack[stack_depth]=="h2") {                 #
+            datacat_stack[stack_depth]="h3"                              #
+          }                                                              #
+        }                                                                #
+        continue;                                                        #
+      } else {                                                           #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    # "["行の場合                                                        #
+    } else if (line=="[") {                                              #
+      # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  #
+      # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   #
+      # データ種別スタックに"l0:配列(初期要素値待ち)"をpush、            #
+      # およびキー名スタックに配列番号0をpush                            #
+      if ((stack_depth==0)                   ||                          #
+          (datacat_stack[stack_depth]=="l0") ||                          #
+          (datacat_stack[stack_depth]=="l1") ||                          #
+          (datacat_stack[stack_depth]=="h2")  ) {                        #
+        stack_depth++;                                                   #
+        datacat_stack[stack_depth]="l0";                                 #
+        keyname_stack[stack_depth]='"$fn"';                              #
+        continue;                                                        #
+      } else {                                                           #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    # "]"行の場合                                                        #
+    } else if (line=="]") {                                              #
+      # データ種別スタックが空でなく最上位が"l0:配列(初期要素値待ち)"、  #
+      # "l2:配列(値取得直後)"であることを確認したら                      #
+      # データ種別スタック、キー名スタック双方をpop                      #
+      # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             #
+      # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       #
+      # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   #
+      if ((stack_depth>0)                       &&                       #
+          ((datacat_stack[stack_depth]=="l0") ||                         #
+           (datacat_stack[stack_depth]=="l2")  ) ) {                     #
+        '"$unoptli"'print_keys_and_value("");                            #
+        delete datacat_stack[stack_depth];                               #
+        delete keyname_stack[stack_depth];                               #
+        stack_depth--;                                                   #
+        if (stack_depth>0) {                                             #
+          if ((datacat_stack[stack_depth]=="l0") ||                      #
+              (datacat_stack[stack_depth]=="l1")  ) {                    #
+            datacat_stack[stack_depth]="l2"                              #
+          } else if (datacat_stack[stack_depth]=="h2") {                 #
+            datacat_stack[stack_depth]="h3"                              #
+          }                                                              #
+        }                                                                #
+        continue;                                                        #
+      } else {                                                           #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    # ":"行の場合                                                        #
+    } else if (line==":") {                                              #
+      # データ種別スタックが空でなく                                     #
+      # 最上位が"h1:ハッシュ(キー取得済)"であることを確認したら          #
+      # データ種別スタック最上位を"h2:ハッシュ(値待ち)"に変更            #
+      if ((stack_depth>0)                   &&                           #
+          (datacat_stack[stack_depth]=="h1") ) {                         #
+        datacat_stack[stack_depth]="h2";                                 #
+        continue;                                                        #
+      } else {                                                           #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    # ","行の場合                                                        #
+    } else if (line==",") {                                              #
+      # 1)データ種別スタックが空でないことを確認                         #
+      if (stack_depth==0) {                                              #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+      '"$unoptli"'# 1.5)-liオプション有効時の動作                        #
+      '"$unoptli"'if (substr(datacat_stack[stack_depth],1,1)=="l") {     #
+      '"$unoptli"'  print_keys_and_value("");                            #
+      '"$unoptli"'}                                                      #
+      # 2)データ種別スタック最上位値によって分岐                         #
+      # 2a)"l2:配列(値取得直後)"の場合                                   #
+      if (datacat_stack[stack_depth]=="l2") {                            #
+        # 2a-1)データ種別スタック最上位を"l1:配列(値待ち)"に変更         #
+        datacat_stack[stack_depth]="l1";                                 #
+        # 2a-2)キー名スタックに入っている配列番号を+1                    #
+        keyname_stack[stack_depth]++;                                    #
+        continue;                                                        #
+      # 2b)"h3:ハッシュ(値取得済)"の場合                                 #
+      } else if (datacat_stack[stack_depth]=="h3") {                     #
+        # 2b-1)データ種別スタック最上位を"h0:ハッシュ(キー未取得)"に変更 #
+        datacat_stack[stack_depth]="h0";                                 #
+        continue;                                                        #
+      # 2c)その他の場合                                                  #
+      } else {                                                           #
+        # 2c-1)エラー                                                    #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    # それ以外の行(値の入っている行)の場合                               #
+    } else                {                                              #
+      # 1)データ種別スタックが空でないことを確認                         #
+      if (stack_depth==0) {                                              #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+      # 2)DQ囲みになっている場合は予めそれを除去しておく                 #
+      # 3)事前にエスケープしていたDQをここで元に戻す                     #
+      key=(match(line,/^".*"$/))?substr(line,2,RLENGTH-2):line;          #
+      gsub(DQ,"\\\"",key);                                               #
+      '"$optt"'value=key;                                                #
+      '"$unoptt"'value=line;                                             #
+      # 4)データ種別スタック最上位値によって分岐                         #
+      # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          #
+      if ((datacat_stack[stack_depth]=="l0") ||                          #
+            (datacat_stack[stack_depth]=="l1")  ) {                      #
+        # 4a-1)キー名スタックと値を表示                                  #
+        print_keys_and_value(value);                                     #
+        # 4a-2)データ種別スタック最上位を"l2:配列(値取得直後)"に変更     #
+        datacat_stack[stack_depth]="l2";                                 #
+      # 4b)"h0:ハッシュ(キー未取得)"の場合                               #
+      } else if (datacat_stack[stack_depth]=="h0") {                     #
+        # 4b-1)値をキー名としてキー名スタックにpush                      #
+        gsub(/ /,alt_spc_in_key,value);                                  #
+        keyname_stack[stack_depth]=key;                                  #
+        # 4b-2)データ種別スタック最上位を"h1:ハッシュ(キー取得済)"に変更 #
+        datacat_stack[stack_depth]="h1";                                 #
+      # 4c)"h2:ハッシュ(値待ち)"の場合                                   #
+      } else if (datacat_stack[stack_depth]=="h2") {                     #
+        # 4c-1)キー名スタックと値を表示                                  #
+        print_keys_and_value(value);                                     #
+        # 4a-2)データ種別スタック最上位を"h3:ハッシュ(値取得済)"に変更   #
+        datacat_stack[stack_depth]="h3";                                 #
+      # 4d)その他の場合                                                  #
+      } else {                                                           #
+        # 4d-1)エラー                                                    #
+        _assert_exit=1;                                                  #
+        exit _assert_exit;                                               #
+      }                                                                  #
+    }                                                                    #
+  }                                                                      #
+}                                                                        #
+END {                                                                    #
+  # 最終処理                                                             #
+  if (_assert_exit) {                                                    #
+    print "Invalid JSON format", LF > "/dev/stderr";                     #
+    line1="keyname-stack:";                                              #
+    line2="datacat-stack:";                                              #
+    for (i=1;i<=stack_depth;i++) {                                       #
+      line1=line1 sprintf("{%s}",keyname_stack[i]);                      #
+      line2=line2 sprintf("{%s}",datacat_stack[i]);                      #
+    }                                                                    #
+    print line1, LF, line2, LF > "/dev/stderr";                          #
+  }                                                                      #
+  exit _assert_exit;                                                     #
+}                                                                        #
+# キー名一覧と値を表示する関数                                           #
+function print_keys_and_value(str) {                                     #
+  print root_symbol;                                                     #
+  for (i=1;i<=stack_depth;i++) {                                         #
+    if (substr(datacat_stack[i],1,1)=="l") {                             #
+      print list_prefix, keyname_stack[i], list_suffix;                  #
+    } else {                                                             #
+      print key_delimit, keyname_stack[i];                               #
+    }                                                                    #
+  }                                                                      #
+  print " ", str, LF;                                                    #
+}                                                                        #
 '

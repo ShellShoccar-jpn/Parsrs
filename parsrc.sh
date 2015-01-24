@@ -23,18 +23,24 @@
 # Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 19, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
 # the side effects which are broght about by the major licenses.
 
 
+set -u
+PATH=/bin:/usr/bin
+export LC_ALL=C
+export LANG=C
+
 SO=$(printf '\016')              # ダブルクォーテーション*2のエスケープ印
 SI=$(printf '\017')              # 値としての改行文字列エスケープ印
 RS=$(printf '\036')              # 1列1行化後に元々の改行を示すための印
 US=$(printf '\037')              # 1列1行化後に元々の列区切りを示すための印
 LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの
+HT=$(printf '\011')              # タブ
 
 optlf=''
 bsesc='\\'
@@ -81,38 +87,38 @@ sed 's/""/'$SO'/g'                                                   |
 #                                                                    #
 # === 値としての改行を\nに変換 ===================================== #
 #     (ダブルクォーテーションが奇数個ならSI付けて次の行と結合する)   #
-awk '                                                                \
-  BEGIN {                                                            \
-    while (getline line) {                                           \
-      s = line;                                                      \
-      gsub(/[^"]/, "", s);                                           \
-      if (((length(s)+cy) % 2) == 0) {                               \
-        cy = 0;                                                      \
-        printf("%s\n", line);                                        \
-      } else {                                                       \
-        cy = 1;                                                      \
-        printf("%s'$SI'", line);                                     \
-      }                                                              \
-    }                                                                \
-  }                                                                  \
+awk '                                                                #
+  BEGIN {                                                            #
+    while (getline line) {                                           #
+      s = line;                                                      #
+      gsub(/[^"]/, "", s);                                           #
+      if (((length(s)+cy) % 2) == 0) {                               #
+        cy = 0;                                                      #
+        printf("%s\n", line);                                        #
+      } else {                                                       #
+        cy = 1;                                                      #
+        printf("%s'$SI'", line);                                     #
+      }                                                              #
+    }                                                                #
+  }                                                                  #
 '                                                                    |
 #                                                                    #
 # === 各列を1行化するにあたり、元々の改行には予め印をつけておく ==== #
 #     (元々の改行の後にRS行を挿入する)                               #
-awk '                                                                \
-  {                                                                  \
-    printf("%s\n'$RS'\n", $0);                                       \
-  }                                                                  \
+awk '                                                                #
+  {                                                                  #
+    printf("%s\n'$RS'\n", $0);                                       #
+  }                                                                  #
 '                                                                    |
 #                                                                    #
 # === ダブルクォーテーション囲み列の1列1行化 ======================= #
 #     (その前後にスペースもあれば余計なのでここで取り除いておく)     #
 # (1/3)先頭からNF-1までのダブルクォーテーション囲み列の1列1行化      #
-sed 's/[[:blank:]]*\("[^"]*"\)[[:blank:]]*,/\1'"$LF$US$LF"'/g'       |
+sed 's/['"$HT"' ]*\("[^"]*"\)['"$HT"' ]*,/\1'"$LF$US$LF"'/g'         |
 # (2/3)最後列(NF)のダブルクォーテーション囲み列の1列1行化            #
-sed 's/,[[:blank:]]*\("[^"]*"\)[[:blank:]]*$/'"$LF$US$LF"'\1/g'      |
+sed 's/,['"$HT"' ]*\("[^"]*"\)['"$HT"' ]*$/'"$LF$US$LF"'\1/g'        |
 # (3/3)ダブルクォーテーション囲み列が単独行だったらスペース除去だけ  #
-sed 's/^[[:blank:]]*\("[^"]*"\)[[:blank:]]*$/\1/g'                   |
+sed 's/^['"$HT"' ]*\("[^"]*"\)['"$HT"' ]*$/\1/g'                     |
 #                                                                    #
 # === ダブルクォーテーション囲みでない列の1列1行化 ================= #
 #     (単純にカンマを改行にすればよい)                               #
@@ -129,26 +135,26 @@ tr -d '"'                                                            |
 # (1/3)まずは""に戻す                                                #
 sed 's/'$SO'/""/g'                                                   |
 # (2/3)null囲みの""だった場合はそれを空行に変換する                  #
-sed 's/^[[:blank:]]*""[[:blank:]]*$//'                               |
+sed 's/^['"$HT"' ]*""['"$HT"' ]*$//'                                 |
 # (3/3)""(二重)を一重に戻す                                          #
 sed 's/""/"/g'                                                       |
 #                                                                    #
 # === 先頭に行番号と列番号をつける ================================= #
-awk '                                                                \
-  BEGIN{                                                             \
-    l=1;                                                             \
-    f=1;                                                             \
-    while (getline line) {                                           \
-      if (line == "'$RS'") {                                         \
-        l++;                                                         \
-        f=1;                                                         \
-      } else if (line == "'$US'") {                                  \
-        f++;                                                         \
-      } else {                                                       \
-        printf("%d %d %s\n", l, f, line);                            \
-      }                                                              \
-    }                                                                \
-  }                                                                  \
+awk '                                                                #
+  BEGIN{                                                             #
+    l=1;                                                             #
+    f=1;                                                             #
+    while (getline line) {                                           #
+      if (line == "'$RS'") {                                         #
+        l++;                                                         #
+        f=1;                                                         #
+      } else if (line == "'$US'") {                                  #
+        f++;                                                         #
+      } else {                                                       #
+        printf("%d %d %s\n", l, f, line);                            #
+      }                                                              #
+    }                                                                #
+  }                                                                  #
 '                                                                    |
 #                                                                    #
 # === 値としての改行のエスケープ(SI)を代替文字列に変換 ============= #

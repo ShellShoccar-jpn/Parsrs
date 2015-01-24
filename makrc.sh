@@ -21,13 +21,17 @@
 #       -t  は、列をダブルクォーテーションで囲まず、エスケープもしない
 # 注意: 行番号昇順→列番号昇順でのソート(sort -k1n,1 -k2n,2)を済ませておくこと
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 20, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
 # the side effects which are broght about by the major licenses.
 
 set -u
+PATH=/bin:/usr/bin
+export LC_ALL=C
+export LANG=C
+
 SO=$(printf '\016')              # バックスラッシュ表現のエスケープ用
 SI=$(printf '\017')              # 改行コード表現のエスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの

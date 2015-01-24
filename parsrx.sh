@@ -40,11 +40,16 @@
 #           -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Sep 28, 2014
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
 # the side effects which are broght about by the major licenses.
+
+set -u
+PATH=/bin:/usr/bin
+export LC_ALL=C
+export LANG=C
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
@@ -144,101 +149,101 @@ sed 's/>/'"$N$ECT"'>/g'                                                        |
 #   ・タグ内の属性値区間のスペース,タブ,"<",">"をエスケープ                    #
 #   ・エスケープした改行でもタグ内かつ引用符外のものは半角スペースに変換       #
 #   ・一重引用符と二重引用符(値としてのものを除く)はここで除去                 #
-awk '                                                                          \
-  BEGIN {                                                                      \
-    OFS = "";                                                                  \
-    ORS = "";                                                                  \
-    LF  = sprintf("\n");                                                       \
-    Sct = "'"$SCT"'"; # タグ開始端候補識別子として使う文字........残す         \
-    Ect = "'"$ECT"'"; # タグ終了端候補識別子として使う文字........残す         \
-    Scs = "'"$SCS"'"; # 一重引用符開始端候補識別子として使う文字..消す         \
-    Ecs = "'"$ECS"'"; # 一重引用符終了端候補識別子として使う文字..消す         \
-    Scd = "'"$SCD"'"; # 二重引用符開始端候補識別子として使う文字..消す         \
-    Ecd = "'"$ECD"'"; # 二重引用符終了端候補識別子として使う文字..消す         \
-    SPC = "'"$SPC"'"; # スペースをエスケープするための文字........これに置換   \
-    TAB = "'"$TAB"'"; # タブをエスケープするための文字............これに置換   \
-    SLS = "'"$SLS"'"; # /をエスケープするための文字...............これに置換   \
-    GT  = "'"$GT"'";  # >をエスケープするための文字(引用符内用)...これに置換   \
-    LT  = "'"$LT"'";  # <をエスケープするための文字(引用符内用)...これに置換   \
-    in_tag  =  0; # 今読み進めた最後の文字位置はタグ内か                       \
-    in_quot =  0; # 今読み進めた最後の文字位置は括弧内か(SQなら1,DQなら2)      \
-    while (getline line) {                                                     \
-      headofline = substr(line,1,1);                                           \
-      if (in_tag == 0) {                                                       \
-        # 1.タグ外だった場合                                                   \
-        if (       headofline == Sct) {                                        \
-          # 1-1.タグ開始端に来た場合                                           \
-          in_tag = 1;                                                          \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print LF, line;                                                      \
-        } else {                                                               \
-          # 1-2.タグに来てない場合                                             \
-          print substr(line,2);                                                \
-        }                                                                      \
-      } else if (in_quot == 0) {                                               \
-        # 2.タグ内だけど引用符外だった場合                                     \
-        if (       headofline == Ect) {                                        \
-          # 2-1.タグ終端に来た場合                                             \
-          in_tag = 0;                                                          \
-          print line, LF;                                                      \
-        } else if (headofline == Scs) {                                        \
-          # 2-2.一重引用符開始端に来た場合                                     \
-          in_quot = 1;                                                         \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print substr(line,3);                                                \
-        } else if (headofline == Scd) {                                        \
-          # 2-3.二重引用符開始端に来た場合                                     \
-          in_quot = 2;                                                         \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print substr(line,3);                                                \
-        } else {                                                               \
-          # 2-4.その他(タグ内で属性括弧外のまま)の場合                         \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print substr(line,2);                                                \
-        }                                                                      \
-      } else if (in_quot == 1) {                                               \
-        # 3.一重引用符内だった場合                                             \
-        if (       headofline == Ecs) {                                        \
-          # 3-1.一重引用符終端に来た場合                                       \
-          in_quot = 0;                                                         \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print substr(line,3);                                                \
-        } else {                                                               \
-          # 3-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print line;                                                          \
-        }                                                                      \
-      } else {                                                                 \
-        # 4.二重引用符内だった場合                                             \
-        if (       headofline == Ecd) {                                        \
-          # 4-1.二重引用符終端に来た場合                                       \
-          in_quot = 0;                                                         \
-          gsub(/'"$LF"'/, " ", line);                                          \
-          print substr(line,3);                                                \
-        } else {                                                               \
-          # 4-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   \
-          gsub(/ / ,SPC, line);                                                \
-          gsub(/\t/,TAB, line);                                                \
-          gsub(/\//,SLS, line);                                                \
-          gsub(/>/ , GT, line);                                                \
-          gsub(/</ , LT, line);                                                \
-          print line;                                                          \
-        }                                                                      \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
+awk '                                                                          #
+  BEGIN {                                                                      #
+    OFS = "";                                                                  #
+    ORS = "";                                                                  #
+    LF  = sprintf("\n");                                                       #
+    Sct = "'"$SCT"'"; # タグ開始端候補識別子として使う文字........残す         #
+    Ect = "'"$ECT"'"; # タグ終了端候補識別子として使う文字........残す         #
+    Scs = "'"$SCS"'"; # 一重引用符開始端候補識別子として使う文字..消す         #
+    Ecs = "'"$ECS"'"; # 一重引用符終了端候補識別子として使う文字..消す         #
+    Scd = "'"$SCD"'"; # 二重引用符開始端候補識別子として使う文字..消す         #
+    Ecd = "'"$ECD"'"; # 二重引用符終了端候補識別子として使う文字..消す         #
+    SPC = "'"$SPC"'"; # スペースをエスケープするための文字........これに置換   #
+    TAB = "'"$TAB"'"; # タブをエスケープするための文字............これに置換   #
+    SLS = "'"$SLS"'"; # /をエスケープするための文字...............これに置換   #
+    GT  = "'"$GT"'";  # >をエスケープするための文字(引用符内用)...これに置換   #
+    LT  = "'"$LT"'";  # <をエスケープするための文字(引用符内用)...これに置換   #
+    in_tag  =  0; # 今読み進めた最後の文字位置はタグ内か                       #
+    in_quot =  0; # 今読み進めた最後の文字位置は括弧内か(SQなら1,DQなら2)      #
+    while (getline line) {                                                     #
+      headofline = substr(line,1,1);                                           #
+      if (in_tag == 0) {                                                       #
+        # 1.タグ外だった場合                                                   #
+        if (       headofline == Sct) {                                        #
+          # 1-1.タグ開始端に来た場合                                           #
+          in_tag = 1;                                                          #
+          gsub(/'"$LF"'/, " ", line);                                          #
+          print LF, line;                                                      #
+        } else {                                                               #
+          # 1-2.タグに来てない場合                                             #
+          print substr(line,2);                                                #
+        }                                                                      #
+      } else if (in_quot == 0) {                                               #
+        # 2.タグ内だけど引用符外だった場合                                     #
+        if (       headofline == Ect) {                                        #
+          # 2-1.タグ終端に来た場合                                             #
+          in_tag = 0;                                                          #
+          print line, LF;                                                      #
+        } else if (headofline == Scs) {                                        #
+          # 2-2.一重引用符開始端に来た場合                                     #
+          in_quot = 1;                                                         #
+          gsub(/ / ,SPC, line);                                                #
+          gsub(/\t/,TAB, line);                                                #
+          gsub(/\//,SLS, line);                                                #
+          gsub(/>/ , GT, line);                                                #
+          gsub(/</ , LT, line);                                                #
+          print substr(line,3);                                                #
+        } else if (headofline == Scd) {                                        #
+          # 2-3.二重引用符開始端に来た場合                                     #
+          in_quot = 2;                                                         #
+          gsub(/ / ,SPC, line);                                                #
+          gsub(/\t/,TAB, line);                                                #
+          gsub(/\//,SLS, line);                                                #
+          gsub(/>/ , GT, line);                                                #
+          gsub(/</ , LT, line);                                                #
+          print substr(line,3);                                                #
+        } else {                                                               #
+          # 2-4.その他(タグ内で属性括弧外のまま)の場合                         #
+          gsub(/'"$LF"'/, " ", line);                                          #
+          print substr(line,2);                                                #
+        }                                                                      #
+      } else if (in_quot == 1) {                                               #
+        # 3.一重引用符内だった場合                                             #
+        if (       headofline == Ecs) {                                        #
+          # 3-1.一重引用符終端に来た場合                                       #
+          in_quot = 0;                                                         #
+          gsub(/'"$LF"'/, " ", line);                                          #
+          print substr(line,3);                                                #
+        } else {                                                               #
+          # 3-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   #
+          gsub(/ / ,SPC, line);                                                #
+          gsub(/\t/,TAB, line);                                                #
+          gsub(/\//,SLS, line);                                                #
+          gsub(/>/ , GT, line);                                                #
+          gsub(/</ , LT, line);                                                #
+          print line;                                                          #
+        }                                                                      #
+      } else {                                                                 #
+        # 4.二重引用符内だった場合                                             #
+        if (       headofline == Ecd) {                                        #
+          # 4-1.二重引用符終端に来た場合                                       #
+          in_quot = 0;                                                         #
+          gsub(/'"$LF"'/, " ", line);                                          #
+          print substr(line,3);                                                #
+        } else {                                                               #
+          # 4-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   #
+          gsub(/ / ,SPC, line);                                                #
+          gsub(/\t/,TAB, line);                                                #
+          gsub(/\//,SLS, line);                                                #
+          gsub(/>/ , GT, line);                                                #
+          gsub(/</ , LT, line);                                                #
+          print line;                                                          #
+        }                                                                      #
+      }                                                                        #
+    }                                                                          #
+  }                                                                            #
 '                                                                              |
 #                                                                              #
 # === コメント(<!-- -->)を削除する =========================================== #
@@ -254,162 +259,162 @@ sed 's/'"$SCT"'<\([^'"$ECT"']*\)'"$ECT"'>/'"$N$SCT"'\1'"$N"'/g'                |
 # 2)タグの名称部分と各属性部分を1つ1つ個別の行にする                           #
 #   ・先頭にタグ行or属性行識別子をつけて                                       #
 #   ・属性行を先にし、タグ行は最後にする                                       #
-awk '                                                                          \
-  # the alternative length function for array variable                         \
-  function arlen(ar,i,l){for(i in ar){l++;}return l;}                          \
-                                                                               \
-  BEGIN {                                                                      \
-    OFS = "";                                                                  \
-    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..残す                       \
-    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..追加する                   \
-    while (getline line) {                                                     \
-      headofline = substr(line,1,1);                                           \
-      if (headofline == Tag) {                                                 \
-        # 1.タグ行である場合....                                               \
-        split(line, items);                                                    \
-        tagname = substr(items[1],2);                                          \
-        sub(/\/$/, "", tagname);                                               \
-        # 1-1.単独タグかどうかを検出                                           \
-        i = '$arlen'(items);                                                   \
-        if (match(items[i],/\/$/)) {                                           \
-          singletag = 1;                                                       \
-          if (RSTART == 1) {                                                   \
-            i--;                                                               \
-          } else {                                                             \
-            items[i] = substr(items[i], 1, RSTART-1);                          \
-          }                                                                    \
-        } else {                                                               \
-          singletag = 0;                                                       \
-        }                                                                      \
-        # 1-2.各属性を各々単独の行として出力                                   \
-        for (j=2; j<=i; j++) {                                                 \
-          item = items[j];                                                     \
-          if (match(item, /^[^=]+/)) {                                         \
-            proname = substr(item,1,RLENGTH);                                  \
-            if (match(item, /^[^=]+["'"'"'].+["'"'"']$/)) {                    \
-              k = length(proname);                                             \
-              proval = substr(item,k+3,length(item)-k-3);                      \
-              print Pro, tagname, Pro, proname, " ", proval;                   \
-            } else if (length(proname) == length(item)) {                      \
-              print Pro, tagname, Pro, proname, " ";                           \
-            } else {                                                           \
-              proval = substr(item,length(proname)+2);                         \
-              print Pro, tagname, Pro, proname, " ", proval;                   \
-            }                                                                  \
-          }                                                                    \
-        }                                                                      \
-        # 1-3.タグ名を単独の行として出力                                       \
-        print Tag,      tagname;                                               \
-        # 1-4.単独タグだった場合は閉じタグ行を追加                             \
-        if (singletag) {                                                       \
-          print Tag, "//", tagname;  # (後で区別できるように"//"とする)        \
-        }                                                                      \
-      } else {                                                                 \
-        # 2.タグ行ではない場合....、そのまま出力                               \
-        print line;                                                            \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
+awk '                                                                          #
+  # the alternative length function for array variable                         #
+  function arlen(ar,i,l){for(i in ar){l++;}return l;}                          #
+                                                                               #
+  BEGIN {                                                                      #
+    OFS = "";                                                                  #
+    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..残す                       #
+    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..追加する                   #
+    while (getline line) {                                                     #
+      headofline = substr(line,1,1);                                           #
+      if (headofline == Tag) {                                                 #
+        # 1.タグ行である場合....                                               #
+        split(line, items);                                                    #
+        tagname = substr(items[1],2);                                          #
+        sub(/\/$/, "", tagname);                                               #
+        # 1-1.単独タグかどうかを検出                                           #
+        i = '$arlen'(items);                                                   #
+        if (match(items[i],/\/$/)) {                                           #
+          singletag = 1;                                                       #
+          if (RSTART == 1) {                                                   #
+            i--;                                                               #
+          } else {                                                             #
+            items[i] = substr(items[i], 1, RSTART-1);                          #
+          }                                                                    #
+        } else {                                                               #
+          singletag = 0;                                                       #
+        }                                                                      #
+        # 1-2.各属性を各々単独の行として出力                                   #
+        for (j=2; j<=i; j++) {                                                 #
+          item = items[j];                                                     #
+          if (match(item, /^[^=]+/)) {                                         #
+            proname = substr(item,1,RLENGTH);                                  #
+            if (match(item, /^[^=]+["'"'"'].+["'"'"']$/)) {                    #
+              k = length(proname);                                             #
+              proval = substr(item,k+3,length(item)-k-3);                      #
+              print Pro, tagname, Pro, proname, " ", proval;                   #
+            } else if (length(proname) == length(item)) {                      #
+              print Pro, tagname, Pro, proname, " ";                           #
+            } else {                                                           #
+              proval = substr(item,length(proname)+2);                         #
+              print Pro, tagname, Pro, proname, " ", proval;                   #
+            }                                                                  #
+          }                                                                    #
+        }                                                                      #
+        # 1-3.タグ名を単独の行として出力                                       #
+        print Tag,      tagname;                                               #
+        # 1-4.単独タグだった場合は閉じタグ行を追加                             #
+        if (singletag) {                                                       #
+          print Tag, "//", tagname;  # (後で区別できるように"//"とする)        #
+        }                                                                      #
+      } else {                                                                 #
+        # 2.タグ行ではない場合....、そのまま出力                               #
+        print line;                                                            #
+      }                                                                        #
+    }                                                                          #
+  }                                                                            #
 '                                                                              |
 # === タグ,属性を絶対パス化し、タグ内文字列をタグの値として同行に記す ======== #
 # ・次のような形式になる(第1列はXPath形式)                                     #
 #    /PATH/TO/TAG_NAME VALUE                                                   #
 #    /PATH/TO/TAG_NNAME/@PROPERTY_NAME VALUE                                   #
 # ・VALUEが空の場合でも手前に半角スペースが1個入る                             #
-awk '                                                                          \
-  BEGIN {                                                                      \
-    OFS = "";                                                                  \
-    ORS = "";                                                                  \
-    LF  = sprintf("\n");                                                       \
-    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..消す                       \
-    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..消す                       \
-    split("", tagpath); # K:階層番号、V:パス名                                 \
-    split("", tagvals); # (a)K:階層深度 V:要素数、(b)K:深度,番号 V:文字列      \
-    split("", tagbros); # K:階層番号、V:"/所属タグの名前/名前/名前/…"         \
-    split("", tagrept); # K:"階層番号/タグ名"、V:出現回数                      \
-    currentdepth     =  0; # 現在いる階層の深度                                \
-    currentpathitems =  0; # 現在のフルパスが持っている文字列の個数            \
-    while (getline line) {                                                     \
-      headofline = substr(line,1,1);                                           \
-      if (       headofline == Tag) {                                          \
-        # 1.タグ行だった場合                                                   \
-        if (substr(line,2,1) == "/") {                                         \
-          # 1-1.タグ終了行だった場合                                           \
-          #     現在の階層の値を付けながら値を表示                             \
-          #     一階層出る                                                     \
-          for (i=1; i<=currentdepth; i++) {                                    \
-            s =  tagpath[i];                                                   \
-            print "/", s;                                                      \
-            '"$unoptn"'print "[", tagrept[i "/" s], "]";                       \
-          }                                                                    \
-          if (substr(line,3,1) != "/") {print " ";} #←単独タグだった場合は、  \
-          for (i=1; i<=currentpathitems; i++) {     #  タグパスの後ろに        \
-            print  tagvals[currentdepth "," i];     #  " "をつけない。         \
-            delete tagvals[currentdepth "," i];                                \
-          }                                                                    \
-          print LF;                                                            \
-          delete tagpath[currentdepth];                                        \
-          '"$unoptn"'i = currentdepth + 1;                                     \
-          '"$unoptn"'if (i in tagbros) {                                       \
-          '"$unoptn"'  split(substr(tagbros[i],2), array, "/");                \
-          '"$unoptn"'  for (j in array) {                                      \
-          '"$unoptn"'    delete tagrept[i "/" array[j]];                       \
-          '"$unoptn"'  }                                                       \
-          '"$unoptn"'  split("", array);                                       \
-          '"$unoptn"'}                                                         \
-          currentdepth--;                                                      \
-          currentpathitems = tagvals[currentdepth];                            \
-          delete tagvals[currentdepth];                                        \
-        } else {                                                               \
-          # 1-2.タグ開始行だった場合                                           \
-          #     一階層入る                                                     \
-          currenttagname = substr(line,2);                                     \
-          '"$unoptc"'childtag = "<" currenttagname "/>";                       \
-          '"$unoptc"'currentpathitems++;                                       \
-          '"$unoptc"'tagvals[currentdepth "," currentpathitems] = childtag;    \
-          tagvals[currentdepth] = currentpathitems;                            \
-          currentpathitems = 0;                                                \
-          currentdepth++;                                                      \
-          tagpath[currentdepth] = currenttagname;                              \
-          '"$unoptn"'if (currentdepth in tagbros) {                            \
-          '"$unoptn"'  if (currentdepth "/" currenttagname in tagrept) {       \
-          '"$unoptn"'    tagrept[currentdepth "/" currenttagname]++;           \
-          '"$unoptn"'  } else {                                                \
-          '"$unoptn"'    s = tagbros[currentdepth] "/" currenttagname;         \
-          '"$unoptn"'    tagbros[currentdepth] = s;                            \
-          '"$unoptn"'    tagrept[currentdepth "/" currenttagname] = 1;         \
-          '"$unoptn"'  }                                                       \
-          '"$unoptn"'} else {                                                  \
-          '"$unoptn"'  tagbros[currentdepth] = "/" currenttagname;             \
-          '"$unoptn"'  tagrept[currentdepth "/" currenttagname] = 1;           \
-          '"$unoptn"'}                                                         \
-        }                                                                      \
-      } else if (headofline == Pro) {                                          \
-        # 2.属性行だった場合                                                   \
-        for (i=1; i<=currentdepth; i++) {                                      \
-          s =  tagpath[i];                                                     \
-          print "/", s;                                                        \
-          '"$unoptn"'print "[", tagrept[i "/" s], "]";                         \
-        }                                                                      \
-        s = substr(line,2);                                                    \
-        i = index(s, "'"$PRO"'");                                              \
-        currenttagname = substr(s, 1, i-1);                                    \
-        print "/", currenttagname;                                             \
-        '"$unoptn"'j = currentdepth + 1;                                       \
-        '"$unoptn"'if ((j "/" currenttagname) in tagrept) {                    \
-        '"$unoptn"'  print "[", (tagrept[j "/" currenttagname]+1), "]";        \
-        '"$unoptn"'} else {                                                    \
-        '"$unoptn"'  print "[1]";                                              \
-        '"$unoptn"'}                                                           \
-        print "/@", substr(s,i+1), LF;                                         \
-      } else {                                                                 \
-        # 3.その他の行だった場合                                               \
-        #   現在の階層の値変数にその行を追加                                   \
-        currentpathitems++;                                                    \
-        tagvals[currentdepth "," currentpathitems] = line;                     \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
+awk '                                                                          #
+  BEGIN {                                                                      #
+    OFS = "";                                                                  #
+    ORS = "";                                                                  #
+    LF  = sprintf("\n");                                                       #
+    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..消す                       #
+    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..消す                       #
+    split("", tagpath); # K:階層番号、V:パス名                                 #
+    split("", tagvals); # (a)K:階層深度 V:要素数、(b)K:深度,番号 V:文字列      #
+    split("", tagbros); # K:階層番号、V:"/所属タグの名前/名前/名前/…"         #
+    split("", tagrept); # K:"階層番号/タグ名"、V:出現回数                      #
+    currentdepth     =  0; # 現在いる階層の深度                                #
+    currentpathitems =  0; # 現在のフルパスが持っている文字列の個数            #
+    while (getline line) {                                                     #
+      headofline = substr(line,1,1);                                           #
+      if (       headofline == Tag) {                                          #
+        # 1.タグ行だった場合                                                   #
+        if (substr(line,2,1) == "/") {                                         #
+          # 1-1.タグ終了行だった場合                                           #
+          #     現在の階層の値を付けながら値を表示                             #
+          #     一階層出る                                                     #
+          for (i=1; i<=currentdepth; i++) {                                    #
+            s =  tagpath[i];                                                   #
+            print "/", s;                                                      #
+            '"$unoptn"'print "[", tagrept[i "/" s], "]";                       #
+          }                                                                    #
+          if (substr(line,3,1) != "/") {print " ";} #←単独タグだった場合は、  #
+          for (i=1; i<=currentpathitems; i++) {     #  タグパスの後ろに        #
+            print  tagvals[currentdepth "," i];     #  " "をつけない。         #
+            delete tagvals[currentdepth "," i];                                #
+          }                                                                    #
+          print LF;                                                            #
+          delete tagpath[currentdepth];                                        #
+          '"$unoptn"'i = currentdepth + 1;                                     #
+          '"$unoptn"'if (i in tagbros) {                                       #
+          '"$unoptn"'  split(substr(tagbros[i],2), array, "/");                #
+          '"$unoptn"'  for (j in array) {                                      #
+          '"$unoptn"'    delete tagrept[i "/" array[j]];                       #
+          '"$unoptn"'  }                                                       #
+          '"$unoptn"'  split("", array);                                       #
+          '"$unoptn"'}                                                         #
+          currentdepth--;                                                      #
+          currentpathitems = tagvals[currentdepth];                            #
+          delete tagvals[currentdepth];                                        #
+        } else {                                                               #
+          # 1-2.タグ開始行だった場合                                           #
+          #     一階層入る                                                     #
+          currenttagname = substr(line,2);                                     #
+          '"$unoptc"'childtag = "<" currenttagname "/>";                       #
+          '"$unoptc"'currentpathitems++;                                       #
+          '"$unoptc"'tagvals[currentdepth "," currentpathitems] = childtag;    #
+          tagvals[currentdepth] = currentpathitems;                            #
+          currentpathitems = 0;                                                #
+          currentdepth++;                                                      #
+          tagpath[currentdepth] = currenttagname;                              #
+          '"$unoptn"'if (currentdepth in tagbros) {                            #
+          '"$unoptn"'  if (currentdepth "/" currenttagname in tagrept) {       #
+          '"$unoptn"'    tagrept[currentdepth "/" currenttagname]++;           #
+          '"$unoptn"'  } else {                                                #
+          '"$unoptn"'    s = tagbros[currentdepth] "/" currenttagname;         #
+          '"$unoptn"'    tagbros[currentdepth] = s;                            #
+          '"$unoptn"'    tagrept[currentdepth "/" currenttagname] = 1;         #
+          '"$unoptn"'  }                                                       #
+          '"$unoptn"'} else {                                                  #
+          '"$unoptn"'  tagbros[currentdepth] = "/" currenttagname;             #
+          '"$unoptn"'  tagrept[currentdepth "/" currenttagname] = 1;           #
+          '"$unoptn"'}                                                         #
+        }                                                                      #
+      } else if (headofline == Pro) {                                          #
+        # 2.属性行だった場合                                                   #
+        for (i=1; i<=currentdepth; i++) {                                      #
+          s =  tagpath[i];                                                     #
+          print "/", s;                                                        #
+          '"$unoptn"'print "[", tagrept[i "/" s], "]";                         #
+        }                                                                      #
+        s = substr(line,2);                                                    #
+        i = index(s, "'"$PRO"'");                                              #
+        currenttagname = substr(s, 1, i-1);                                    #
+        print "/", currenttagname;                                             #
+        '"$unoptn"'j = currentdepth + 1;                                       #
+        '"$unoptn"'if ((j "/" currenttagname) in tagrept) {                    #
+        '"$unoptn"'  print "[", (tagrept[j "/" currenttagname]+1), "]";        #
+        '"$unoptn"'} else {                                                    #
+        '"$unoptn"'  print "[1]";                                              #
+        '"$unoptn"'}                                                           #
+        print "/@", substr(s,i+1), LF;                                         #
+      } else {                                                                 #
+        # 3.その他の行だった場合                                               #
+        #   現在の階層の値変数にその行を追加                                   #
+        currentpathitems++;                                                    #
+        tagvals[currentdepth "," currentpathitems] = line;                     #
+      }                                                                        #
+    }                                                                          #
+  }                                                                            #
 '                                                                              |
 #                                                                              #
 # === アンエスケープ ========================================================= #
