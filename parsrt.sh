@@ -1,34 +1,43 @@
 #! /bin/sh
 #
 # parsrt.sh
-#    TSV(RFC 4180派生型):ダブルクォーテーションのエスケープは"")から
+#    タブ区切り値(TSV)ファイルから
 #    行番号列番号インデックス付き値(line field indexed value)テキストへの正規化
 #    (例)
 #     aaa<TAB>"b""bb"<TAB>"c    (←"<TAB>"は実際にはタブを表す)
 #     cc"<TAB>d d
 #     "f<TAB>f"
-#     ↓
-#     1 1 aaa
-#     1 2 b"bb
-#     1 3 c\ncc
-#     1 4 d d
-#     2 1 f<TAB>f
+#     ↓(通常の場合)  ↓(ダブルクォーテーションにRFC 4180同等の意味を付けた場合)
+#     1 1 aaa         1 1 aaa
+#     1 2 "b""bb"     1 2 b"bb
+#     1 3 "c          1 3 c\ncc
+#     2 1 cc"         1 4 d d
+#     2 2 d d         2 1 f<TAB>f
+#     3 1 "f
+#     3 2 f"
 #     ◇よって grep '^1 3 ' | sed 's/^[^ ]* [^ ]* //' などと
 #       後ろに grep&sed をパイプで繋げれば目的の行・列の値が得られる。
 #       さらにこれを
 #         sed 's/\\n/\<LF>/g' (←"<LF>"は実際には改行を表す)
 #       にパイプすれば、元データに改行を含む場合でも完全な値として取り出せる。
 #
-# Usage: parsrc.sh [-lf<str>] [CSV_file]
-# Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
+# Usage: parsrj.sh [-dq] [-lf<str>] [CSV_file]
+# Options : -dq は、ダブルクォーテーションにRFC 4180と同様の意味を持たせる。
+#           -lf は、値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
+#               尚、これを指定すると、-dqオプションが指定されたものと扱われる。
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 24, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
 # the side effects which are broght about by the major licenses.
 
+
+set -u
+PATH='/usr/bin:/bin'
+IFS=$(printf ' \t\n_'); IFS=${IFS%_}
+export IFS LANG=C LC_ALL=C PATH
 
 HT=$(printf '\011')              # タブ(列区切り文字)
 SO=$(printf '\016')              # ダブルクォーテーション*2のエスケープ印
@@ -37,6 +46,7 @@ RS=$(printf '\036')              # 1列1行化後に元々の改行を示すた�
 US=$(printf '\037')              # 1列1行化後に元々の列区切りを示すための印
 LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの
 
+optdq=0
 optlf=''
 bsesc='\\'
 file=''
@@ -44,7 +54,10 @@ printhelp=0
 i=0
 for arg in "$@"; do
   i=$((i+1))
-  if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
+  if [   \( "_${arg#-dq}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    optdq=1
+  elif [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    optdq=1
     optlf=$(printf '%s' "${arg#-lf}_" |
             tr -d '\n'                |
             sed 's/\([\&/]\)/\\\1/g'  )
@@ -61,15 +74,54 @@ for arg in "$@"; do
 done
 if [ $printhelp -ne 0 ]; then
   cat <<-__USAGE
-	Usage : ${0##*/} [-lf<str>] [CSV_file] 1>&2
-	Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
+	Usage: ${0##*/} [-dq] [-lf<str>] [CSV_file]
+	Options : -dq は、ダブルクォーテーションにRFC 4180と同様の意味を持たせる。
+	          -lf は、値として含まれている改行を表現する文字列指定(デフォルトは
 	              "\n"であり、この場合は元々の \ が \\ にエスケープされる)
+	              尚、これを指定すると、-dqオプションが指定されたものと扱われる。
 __USAGE
   exit 1
 fi
 [ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
 [ -z "$file"  ] && file='-'
 
+### 通常のTSVファイル(ダブルクォーテーションに特別な意味無し)の場合の処理 ######
+#
+case $optdq in 0)
+  # === データの流し込み ============================================ #
+  cat "$file"                                                         |
+  #                                                                   #
+  # === 行末のCRを取り除く ========================================== #
+  sed "s/$(printf '\r')\$//"                                          |
+  #                                                                   #
+  # === 各列を1行化するにあたり、元々の改行には予め印をつけておく === #
+  #     (元々の改行の後にRS行を挿入する)                              #
+  sed "s/\$/$LF$RS/"                                                  |
+  #                                                                   #
+  # === 1列1行化 ==================================================== #
+  tr "$HT" '\n'                                                       |
+  #                                                                   #
+  # === 先頭に行番号と列番号をつける ================================ #
+  awk '                                                               #
+    BEGIN{                                                            #
+      l=1;                                                            #
+      f=1;                                                            #
+      while (getline line) {                                          #
+        if (line == "'$RS'") {                                        #
+          l++;                                                        #
+          f=1;                                                        #
+        } else {                                                      #
+          print l, f, line;                                           #
+          f++;                                                        #
+        }                                                             #
+      }                                                               #
+    }                                                                 #
+  '
+  exit
+;; esac
+
+### ダブルクォーテーションにRFC 4180と同様の意味がある場合の処理 ###############
+#
 # === データの流し込み ============================================== #
 cat "$file"                                                           |
 #                                                                     #
@@ -100,11 +152,7 @@ awk '                                                                 #
 #                                                                     #
 # === 各列を1行化するにあたり、元々の改行には予め印をつけておく ===== #
 #     (元々の改行の後にRS行を挿入する)                                #
-awk '                                                                 #
-  {                                                                   #
-    printf("%s\n'$RS'\n", $0);                                        #
-  }                                                                   #
-'                                                                     |
+sed "s/\$/$LF$RS/"                                                    |
 #                                                                     #
 # === ダブルクォーテーション囲み列の1列1行化 ======================== #
 #     (その前後にスペースもあれば余計なのでここで取り除いておく)      #

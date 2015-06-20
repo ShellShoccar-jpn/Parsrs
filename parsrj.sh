@@ -2,7 +2,7 @@
 #
 # parsrj.sh
 #    JSONテキストから
-#    階層インデックス付き値(tree indexed value)テキスへの正規化
+#    JSONPathインデックス付き値(JSONPath-indexed value)テキスへの正規化
 #    (例)
 #     {"hoge":111,
 #      "foo" :["2\n2",
@@ -35,7 +35,7 @@
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -43,9 +43,9 @@
 
 
 set -u
-PATH=/bin:/usr/bin
-export LC_ALL=C
-export LANG=C
+PATH='/usr/bin:/bin'
+IFS=$(printf ' \t\n_'); IFS=${IFS%_}
+export IFS LANG=C LC_ALL=C PATH
 
 DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
@@ -192,12 +192,12 @@ BEGIN {                                                                  #
     # "{"行の場合                                                        #
     if        (line=="{") {                                              #
       # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  #
-      # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   #
-      # データ種別スタックに"h0:ハッシュ(キー未取得)"をpush              #
+      # "l1:配列(値待ち)"、"h3:ハッシュ(値待ち)"であることを確認したら   #
+      # データ種別スタックに"h0:ハッシュ(初期キー待ち)"をpush            #
       if ((stack_depth==0)                   ||                          #
           (datacat_stack[stack_depth]=="l0") ||                          #
           (datacat_stack[stack_depth]=="l1") ||                          #
-          (datacat_stack[stack_depth]=="h2")  ) {                        #
+          (datacat_stack[stack_depth]=="h3")  ) {                        #
         stack_depth++;                                                   #
         datacat_stack[stack_depth]="h0";                                 #
         continue;                                                        #
@@ -207,41 +207,46 @@ BEGIN {                                                                  #
       }                                                                  #
     # "}"行の場合                                                        #
     } else if (line=="}") {                                              #
-      # データ種別スタックが空でなく最上位が"h0:ハッシュ(キー未取得)"、  #
-      # "h3:ハッシュ(値取得済)"であることを確認したら                    #
+      # データ種別スタックが空でなく最上位が"h0:ハッシュ(初期キー待ち)"、#
+      # "h4:ハッシュ(値取得済)"であることを確認したら                    #
       # データ種別スタック、キー名スタック双方をpop                      #
       # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             #
       # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       #
-      # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   #
-      if ((stack_depth>0)                       &&                       #
-          ((datacat_stack[stack_depth]=="h0") ||                         #
-           (datacat_stack[stack_depth]=="h3")  ) ) {                     #
-        delete datacat_stack[stack_depth];                               #
-        delete keyname_stack[stack_depth];                               #
-        stack_depth--;                                                   #
-        if (stack_depth>0) {                                             #
-          if ((datacat_stack[stack_depth]=="l0") ||                      #
-              (datacat_stack[stack_depth]=="l1")  ) {                    #
-            datacat_stack[stack_depth]="l2"                              #
-          } else if (datacat_stack[stack_depth]=="h2") {                 #
-            datacat_stack[stack_depth]="h3"                              #
+      # 同様に"h3:ハッシュ(値待ち)"だった時は"h4:ハッシュ(値取得済)"に   #
+      if (stack_depth>0)                                       {         #
+        s=datacat_stack[stack_depth];                                    #
+        if (s=="h0" || s=="h4")                              {           #
+          if (s=="h0") {print_keys_and_value("");}                       #
+          delete datacat_stack[stack_depth];                             #
+          delete keyname_stack[stack_depth];                             #
+          stack_depth--;                                                 #
+          if (stack_depth>0)                               {             #
+            if ((datacat_stack[stack_depth]=="l0") ||                    #
+                (datacat_stack[stack_depth]=="l1")  )    {               #
+              datacat_stack[stack_depth]="l2"                            #
+            } else if (datacat_stack[stack_depth]=="h3") {               #
+              datacat_stack[stack_depth]="h4"                            #
+            }                                                            #
           }                                                              #
+          continue;                                                      #
+        } else                                               {           #
+          _assert_exit=1;                                                #
+          exit _assert_exit;                                             #
         }                                                                #
-        continue;                                                        #
-      } else {                                                           #
+      } else                                                   {         #
         _assert_exit=1;                                                  #
         exit _assert_exit;                                               #
       }                                                                  #
     # "["行の場合                                                        #
     } else if (line=="[") {                                              #
       # データ種別スタックが空、又は最上位が"l0:配列(初期要素値待ち)"、  #
-      # "l1:配列(値待ち)"、"h2:ハッシュ(値待ち)"であることを確認したら   #
+      # "l1:配列(値待ち)"、"h3:ハッシュ(値待ち)"であることを確認したら   #
       # データ種別スタックに"l0:配列(初期要素値待ち)"をpush、            #
       # およびキー名スタックに配列番号0をpush                            #
       if ((stack_depth==0)                   ||                          #
           (datacat_stack[stack_depth]=="l0") ||                          #
           (datacat_stack[stack_depth]=="l1") ||                          #
-          (datacat_stack[stack_depth]=="h2")  ) {                        #
+          (datacat_stack[stack_depth]=="h3")  ) {                        #
         stack_depth++;                                                   #
         datacat_stack[stack_depth]="l0";                                 #
         keyname_stack[stack_depth]='"$fn"';                              #
@@ -257,35 +262,40 @@ BEGIN {                                                                  #
       # データ種別スタック、キー名スタック双方をpop                      #
       # もしpop直後の最上位が"l0:配列(初期要素値待ち)"または             #
       # "l1:配列(値待ち)"だった場合には"l2:配列(値取得直後)"に変更       #
-      # 同様に"h2:ハッシュ(値待ち)"だった時は"h3:ハッシュ(値取得済)"に   #
-      if ((stack_depth>0)                       &&                       #
-          ((datacat_stack[stack_depth]=="l0") ||                         #
-           (datacat_stack[stack_depth]=="l2")  ) ) {                     #
-        '"$unoptli"'print_keys_and_value("");                            #
-        delete datacat_stack[stack_depth];                               #
-        delete keyname_stack[stack_depth];                               #
-        stack_depth--;                                                   #
-        if (stack_depth>0) {                                             #
-          if ((datacat_stack[stack_depth]=="l0") ||                      #
-              (datacat_stack[stack_depth]=="l1")  ) {                    #
-            datacat_stack[stack_depth]="l2"                              #
-          } else if (datacat_stack[stack_depth]=="h2") {                 #
-            datacat_stack[stack_depth]="h3"                              #
+      # 同様に"h3:ハッシュ(値待ち)"だった時は"h4:ハッシュ(値取得済)"に   #
+      if (stack_depth>0)                                         {       #
+        s=datacat_stack[stack_depth];                                    #
+        if (s=="l0" || s=="l2")                                {         #
+          if (s=="l0") {print_keys_and_value("");}                       #
+          '"$unoptli"'if (s=="l2") {print_keys_and_value("");}           #
+          delete datacat_stack[stack_depth];                             #
+          delete keyname_stack[stack_depth];                             #
+          stack_depth--;                                                 #
+          if (stack_depth>0)                               {             #
+            if ((datacat_stack[stack_depth]=="l0") ||                    #
+                (datacat_stack[stack_depth]=="l1")  )    {               #
+              datacat_stack[stack_depth]="l2"                            #
+            } else if (datacat_stack[stack_depth]=="h3") {               #
+              datacat_stack[stack_depth]="h4"                            #
+            }                                                            #
           }                                                              #
+          continue;                                                      #
+        } else                                                 {         #
+          _assert_exit=1;                                                #
+          exit _assert_exit;                                             #
         }                                                                #
-        continue;                                                        #
-      } else {                                                           #
+      } else                                                     {       #
         _assert_exit=1;                                                  #
         exit _assert_exit;                                               #
       }                                                                  #
     # ":"行の場合                                                        #
     } else if (line==":") {                                              #
       # データ種別スタックが空でなく                                     #
-      # 最上位が"h1:ハッシュ(キー取得済)"であることを確認したら          #
-      # データ種別スタック最上位を"h2:ハッシュ(値待ち)"に変更            #
+      # 最上位が"h2:ハッシュ(キー取得済)"であることを確認したら          #
+      # データ種別スタック最上位を"h3:ハッシュ(値待ち)"に変更            #
       if ((stack_depth>0)                   &&                           #
-          (datacat_stack[stack_depth]=="h1") ) {                         #
-        datacat_stack[stack_depth]="h2";                                 #
+          (datacat_stack[stack_depth]=="h2") ) {                         #
+        datacat_stack[stack_depth]="h3";                                 #
         continue;                                                        #
       } else {                                                           #
         _assert_exit=1;                                                  #
@@ -310,10 +320,10 @@ BEGIN {                                                                  #
         # 2a-2)キー名スタックに入っている配列番号を+1                    #
         keyname_stack[stack_depth]++;                                    #
         continue;                                                        #
-      # 2b)"h3:ハッシュ(値取得済)"の場合                                 #
-      } else if (datacat_stack[stack_depth]=="h3") {                     #
-        # 2b-1)データ種別スタック最上位を"h0:ハッシュ(キー未取得)"に変更 #
-        datacat_stack[stack_depth]="h0";                                 #
+      # 2b)"h4:ハッシュ(値取得済)"の場合                                 #
+      } else if (datacat_stack[stack_depth]=="h4") {                     #
+        # 2b-1)データ種別スタック最上位を"h1:ハッシュ(次キー待ち)"に変更 #
+        datacat_stack[stack_depth]="h1";                                 #
         continue;                                                        #
       # 2c)その他の場合                                                  #
       } else {                                                           #
@@ -336,25 +346,25 @@ BEGIN {                                                                  #
       '"$unoptt"'value=line;                                             #
       # 4)データ種別スタック最上位値によって分岐                         #
       # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          #
-      if ((datacat_stack[stack_depth]=="l0") ||                          #
-            (datacat_stack[stack_depth]=="l1")  ) {                      #
+      s=datacat_stack[stack_depth];                                      #
+      if ((s=="l0") || (s=="l1")) {                                      #
         # 4a-1)キー名スタックと値を表示                                  #
         print_keys_and_value(value);                                     #
         # 4a-2)データ種別スタック最上位を"l2:配列(値取得直後)"に変更     #
         datacat_stack[stack_depth]="l2";                                 #
-      # 4b)"h0:ハッシュ(キー未取得)"の場合                               #
-      } else if (datacat_stack[stack_depth]=="h0") {                     #
+      # 4b)"h0,h1:ハッシュ(初期キー待ち,次キー待ち)"の場合               #
+      } else if (s=="h0" || (s=="h1")) {                                 #
         # 4b-1)値をキー名としてキー名スタックにpush                      #
         gsub(/ /,alt_spc_in_key,value);                                  #
         keyname_stack[stack_depth]=key;                                  #
-        # 4b-2)データ種別スタック最上位を"h1:ハッシュ(キー取得済)"に変更 #
-        datacat_stack[stack_depth]="h1";                                 #
-      # 4c)"h2:ハッシュ(値待ち)"の場合                                   #
-      } else if (datacat_stack[stack_depth]=="h2") {                     #
+        # 4b-2)データ種別スタック最上位を"h2:ハッシュ(キー取得済)"に変更 #
+        datacat_stack[stack_depth]="h2";                                 #
+      # 4c)"h3:ハッシュ(値待ち)"の場合                                   #
+      } else if (s=="h3") {                                              #
         # 4c-1)キー名スタックと値を表示                                  #
         print_keys_and_value(value);                                     #
-        # 4a-2)データ種別スタック最上位を"h3:ハッシュ(値取得済)"に変更   #
-        datacat_stack[stack_depth]="h3";                                 #
+        # 4a-2)データ種別スタック最上位を"h4:ハッシュ(値取得済)"に変更   #
+        datacat_stack[stack_depth]="h4";                                 #
       # 4d)その他の場合                                                  #
       } else {                                                           #
         # 4d-1)エラー                                                    #

@@ -10,7 +10,7 @@
 #
 # Usage: unsecj.sh [-n] [JSON_value_textfile]
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -19,8 +19,8 @@
 
 set -u
 PATH=/bin:/usr/bin
-export LC_ALL=C
-export LANG=C
+IFS=$(printf ' \t\n_'); IFS=${IFS%_}
+export IFS LANG=C LC_ALL=C PATH
 
 BS=$(printf '\010')             # バックスペース
 TAB=$(printf '\011')            # タブ
@@ -28,19 +28,23 @@ LF=$(printf '\\\n_');LF=${LF%_} # 改行(sedコマンド取扱用)
 FF=$(printf '\014')             # 改ページ
 CR=$(printf '\015')             # キャリッジリターン
 
-if [ \( $# -ge 1 \) -a \( "_$1" = '_-n' \) ]; then
-  LF_NONDECODE=1
-  shift
-fi
-if [ \( $# -eq 1 \) -a \( \( -f "$1" \) -o \( -c "$1" \) \) ]; then
-  file=$1
-elif [ \( $# -eq 0 \) -o \( \( $# -eq 1 \) -a \( "_$1" = '_-' \) \) ]
-then
-  file='-'
-else
-  echo "Usage : ${0##*/} [-n] [JSON_value_textfile]" 1>&2
-  exit 1
-fi
+case "$#" in
+  [^0]*) case "$1" in '-n') LF_NONDECODE=1; shift;; esac
+         ;;
+esac
+case "$#" in
+  0) file='-'
+     ;;
+  1) if [ \( -f "$1" \) -o \( -c "$1" \) -o \( -p "$1" \) -o \
+          \( "_$1" = '_-' \)                                 ]
+     then
+       file=$1
+     fi
+     ;;
+  *) printf 'Usage : %s [-n] [JSON_value_textfile]\n' "${0##*/}" 1>&2
+     exit 1
+     ;;
+esac
 
 # === データの流し込み ============================================= #
 cat "$file"                                                          |

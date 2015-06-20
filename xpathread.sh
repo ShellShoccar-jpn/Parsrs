@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -38,9 +38,9 @@
 
 
 set -u
-PATH=/bin:/usr/bin
-export LC_ALL=C
-export LANG=C
+PATH='/usr/bin:/bin'
+IFS=$(printf ' \t\n_'); IFS=${IFS%_}
+export IFS LANG=C LC_ALL=C PATH
 
 # ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
 if awk 'BEGIN{a[1]=1;b=length(a)}' 2>/dev/null; then

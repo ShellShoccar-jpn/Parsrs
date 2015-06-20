@@ -2,7 +2,7 @@
 #
 # parsrx.sh
 #    XMLテキストから
-#    階層インデックス付き値(tree indexed value)テキスへの正規化
+#    XPathインデックス付き値(XPath-indexed value)テキスへの正規化
 #    (例)
 #     <foo>
 #       あはは
@@ -40,16 +40,16 @@
 #           -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
 # the side effects which are broght about by the major licenses.
 
 set -u
-PATH=/bin:/usr/bin
-export LC_ALL=C
-export LANG=C
+PATH='/usr/bin:/bin'
+IFS=$(printf ' \t\n_'); IFS=${IFS%_}
+export IFS LANG=C LC_ALL=C PATH
 
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字

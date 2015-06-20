@@ -23,7 +23,7 @@
 # Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jan 25, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -31,9 +31,9 @@
 
 
 set -u
-PATH=/bin:/usr/bin
-export LC_ALL=C
-export LANG=C
+PATH='/usr/bin:/bin'
+IFS=$(printf ' \t\n_'); IFS=${IFS%_}
+export IFS LANG=C LC_ALL=C PATH
 
 SO=$(printf '\016')              # ダブルクォーテーション*2のエスケープ印
 SI=$(printf '\017')              # 値としての改行文字列エスケープ印
@@ -105,11 +105,7 @@ awk '                                                                #
 #                                                                    #
 # === 各列を1行化するにあたり、元々の改行には予め印をつけておく ==== #
 #     (元々の改行の後にRS行を挿入する)                               #
-awk '                                                                #
-  {                                                                  #
-    printf("%s\n'$RS'\n", $0);                                       #
-  }                                                                  #
-'                                                                    |
+sed "s/\$/$LF$RS/"                                                   |
 #                                                                    #
 # === ダブルクォーテーション囲み列の1列1行化 ======================= #
 #     (その前後にスペースもあれば余計なのでここで取り除いておく)     #
