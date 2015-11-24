@@ -21,7 +21,7 @@
 #       -t  は、列をダブルクォーテーションで囲まず、エスケープもしない
 # 注意: 行番号昇順→列番号昇順でのソート(sort -k1n,1 -k2n,2)を済ませておくこと
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -42,26 +42,29 @@ optt=0
 file=''
 printhelp=0
 i=0
-for arg in "$@"; do
-  i=$((i+1))
-  if [ \( "_${arg#-fs}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    optfs=$(printf '%s' "${arg#-fs}_" |
-            tr -d '\n'                )
-    optfs=${optfs%_}
-  elif [ \( "_${arg}" = '_-lf' \) -a \( -z "$file" \) ]; then
-    optlf=1
-  elif [ \( "_${arg}" = '_-t' \) -a \( -z "$file" \) ]; then
-    optt=1
-  elif [ \( $i -eq $# \) -a \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
-    file='-'
-  elif [ \( $i -eq $# \) -a \( \( -f "$arg" \) -o \( -c "$arg" \) \) \
-         -a \( -z "$file" \) ]
-  then
-    file=$arg
-  else
-    printhelp=1;
-  fi
-done
+case $# in [!0]*)
+  for arg in "$@"; do
+    i=$((i+1))
+    if [ \( "_${arg#-fs}" != "_$arg" \) -a \( -z "$file" \) ]; then
+      optfs=$(printf '%s' "${arg#-fs}_" |
+              tr -d '\n'                )
+      optfs=${optfs%_}
+    elif [ \( "_${arg}" = '_-lf' \) -a \( -z "$file" \) ]; then
+      optlf=1
+    elif [ \( "_${arg}" = '_-t' \) -a \( -z "$file" \) ]; then
+      optt=1
+    elif [ \( $i -eq $# \) -a \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
+      file='-'
+    elif [ \( $i -eq $# \) -a \( \( -f "$arg" \) -o \( -c "$arg" \) \) \
+           -a \( -z "$file" \) ]
+    then
+      file=$arg
+    else
+      printhelp=1;
+    fi
+  done
+  ;;
+esac
 if [ $printhelp -ne 0 ]; then
   cat <<-__USAGE
 	書式: ${0##*/} [-fs<str>] [-t] [file]

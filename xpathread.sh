@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -58,83 +58,86 @@ xpath_file=''
 optmode=''
 i=0
 printhelp=0
-for arg in "$@"; do
-  i=$((i+1))
-  if [ -z "$optmode" ]; then
-    case "$arg" in
-      -[sdnip]*)
-        ret=$(echo "_${arg#-}" |
-              awk '{
-                opts = "_";
-                optn = "_";
-                optp = "_";
-                opt_str = "";
-                for (n=2; n<=length($0); n++) {
-                  s = substr($0,n,1);
-                  if ((s == "s") || (s == "d")) {
-                    opts = "s";
-                    opt_str = substr($0, n+1);
-                    break;
-                  } else if ((s == "n") || (s == "i")) {
-                    optn = "n";
-                    opt_str = substr($0, n+1);
-                    break;
-                  } else if (s == "p") {
-                    optp = "p";
+case $# in [!0]*)
+  for arg in "$@"; do
+    i=$((i+1))
+    if [ -z "$optmode" ]; then
+      case "$arg" in
+        -[sdnip]*)
+          ret=$(echo "_${arg#-}" |
+                awk '{
+                  opts = "_";
+                  optn = "_";
+                  optp = "_";
+                  opt_str = "";
+                  for (n=2; n<=length($0); n++) {
+                    s = substr($0,n,1);
+                    if ((s == "s") || (s == "d")) {
+                      opts = "s";
+                      opt_str = substr($0, n+1);
+                      break;
+                    } else if ((s == "n") || (s == "i")) {
+                      optn = "n";
+                      opt_str = substr($0, n+1);
+                      break;
+                    } else if (s == "p") {
+                      optp = "p";
+                    }
                   }
-                }
-                printf("%s%s%s %s", opts, optn, optp, opt_str);
-              }')
-        ret1=${ret%% *}
-        ret2=${ret#* }
-        if [ "${ret1#*s}" != "$ret1" ]; then
-          opts=$ret2
-        fi
-        if [ "${ret1#*n}" != "$ret1" ]; then
-          if [ -n "$ret2" ]; then
-            optn=$ret2
+                  printf("%s%s%s %s", opts, optn, optp, opt_str);
+                }')
+          ret1=${ret%% *}
+          ret2=${ret#* }
+          if [ "${ret1#*s}" != "$ret1" ]; then
+            opts=$ret2
+          fi
+          if [ "${ret1#*n}" != "$ret1" ]; then
+            if [ -n "$ret2" ]; then
+              optn=$ret2
+            else
+              optmode='n'
+            fi
+          fi
+          if [ "${ret1#*p}" != "$ret1" ]; then
+            optp='#'
+          fi
+          ;;
+        *)
+          if [ -z "$xpath" ]; then
+            if [ $i -lt $(($#-1)) ]; then
+              printhelp=1
+              break
+            fi
+            xpath=$arg
+          elif [ -z "$xpath_file" ]; then
+            if [ $i -ne $# ]; then
+              printhelp=1
+              break
+            fi
+            if [ \( ! -f "$xpath_file"       \) -a \
+                 \( ! -c "$xpath_file"       \) -a \
+                 \( ! "_$xpath_file" != '_-' \)    ]
+            then
+              printhelp=1
+              break
+            fi
+            xpath_file=$arg
           else
-            optmode='n'
-          fi
-        fi
-        if [ "${ret1#*p}" != "$ret1" ]; then
-          optp='#'
-        fi
-        ;;
-      *)
-        if [ -z "$xpath" ]; then
-          if [ $i -lt $(($#-1)) ]; then
             printhelp=1
             break
           fi
-          xpath=$arg
-        elif [ -z "$xpath_file" ]; then
-          if [ $i -ne $# ]; then
-            printhelp=1
-            break
-          fi
-          if [ \( ! -f "$xpath_file"       \) -a \
-               \( ! -c "$xpath_file"       \) -a \
-               \( ! "_$xpath_file" != '_-' \)    ]
-          then
-            printhelp=1
-            break
-          fi
-          xpath_file=$arg
-        else
-          printhelp=1
-          break
-        fi
-        ;;
-    esac
-  elif [ "$optmode" = 'n' ]; then
-    optn=$arg
-    optmode=''
-  else
-    printhelp=1
-    break
-  fi
-done
+          ;;
+      esac
+    elif [ "$optmode" = 'n' ]; then
+      optn=$arg
+      optmode=''
+    else
+      printhelp=1
+      break
+    fi
+  done
+  ;;
+esac
 [ -n "$xpath"  ] || printhelp=1
 if [ $printhelp -ne 0 ]; then
   cat <<-__USAGE 1>&2

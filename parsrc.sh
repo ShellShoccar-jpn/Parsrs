@@ -23,7 +23,7 @@
 # Options : -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -47,23 +47,26 @@ bsesc='\\'
 file=''
 printhelp=0
 i=0
-for arg in "$@"; do
-  i=$((i+1))
-  if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    optlf=$(printf '%s' "${arg#-lf}_" |
-            tr -d '\n'                |
-            sed 's/\([\&/]\)/\\\1/g'  )
-    optlf=${optlf%_}
-  elif [ \( $i -eq $# \) -a \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
-    file='-'
-  elif [ \( $i -eq $# \) -a \( \( -f "$arg" \) -o \( -c "$arg" \) \) \
-         -a \( -z "$file" \) ]
-  then
-    file=$arg
-  else
-    printhelp=1;
-  fi
-done
+case $# in [!0]*)
+  for arg in "$@"; do
+    i=$((i+1))
+    if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
+      optlf=$(printf '%s' "${arg#-lf}_" |
+              tr -d '\n'                |
+              sed 's/\([\&/]\)/\\\1/g'  )
+      optlf=${optlf%_}
+    elif [ \( $i -eq $# \) -a \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
+      file='-'
+    elif [ \( $i -eq $# \) -a \( \( -f "$arg" \) -o \( -c "$arg" \) \) \
+           -a \( -z "$file" \) ]
+    then
+      file=$arg
+    else
+      printhelp=1;
+    fi
+  done
+  ;;
+esac
 if [ $printhelp -ne 0 ]; then
   cat <<-__USAGE
 	Usage : ${0##*/} [-lf<str>] [CSV_file] 1>&2

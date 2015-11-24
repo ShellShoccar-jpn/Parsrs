@@ -40,7 +40,7 @@
 #           -lf は値として含まれている改行を表現する文字列指定(デフォルトは
 #               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Jun 21, 2015
+# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
 #
 # This is a public-domain software. It measns that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -81,36 +81,39 @@ unoptc='#'
 unoptn='#'
 file=''
 printhelp=0
-for arg in "$@"; do
-  if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
-    optlf=$(printf '%s' "${arg#-lf}_" |
-            tr -d '\n'                |
-            sed 's/\([\&/]\)/\\\1/g'  )
-    optlf=${optlf%_}
-  elif [ \( "_${arg#-}" != "_$arg" \) -a \( -n "_${arg#-}" \) \
-         -a \( -z "$file" \)                                  ]
-  then
-    for opt in $(echo "_${arg#-}" | sed 's/^_//;s/\(.\)/\1 /g'); do
-      case "$opt" in
-        c) # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-           unoptc=''
-           ;;
-        n) # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-           unoptn=''
-           ;;
-        *)
-           printhelp=1
-           ;;
-      esac
-    done
-  elif [ \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
-    file='-'
-  elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
-    file=$arg
-  else
-    printhelp=1;
-  fi
-done
+case $# in [!0]*)
+  for arg in "$@"; do
+    if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
+      optlf=$(printf '%s' "${arg#-lf}_" |
+              tr -d '\n'                |
+              sed 's/\([\&/]\)/\\\1/g'  )
+      optlf=${optlf%_}
+    elif [ \( "_${arg#-}" != "_$arg" \) -a \( -n "_${arg#-}" \) \
+           -a \( -z "$file" \)                                  ]
+    then
+      for opt in $(echo "_${arg#-}" | sed 's/^_//;s/\(.\)/\1 /g'); do
+        case "$opt" in
+          c) # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+             unoptc=''
+             ;;
+          n) # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
+             unoptn=''
+             ;;
+          *)
+             printhelp=1
+             ;;
+        esac
+      done
+    elif [ \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
+      file='-'
+    elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
+      file=$arg
+    else
+      printhelp=1;
+    fi
+  done
+  ;;
+esac
 if [ $printhelp -ne 0 ]; then
   cat <<__USAGE 1>&2
 Usage   : ${0##*/} [-c] [-n] [-lf<str>] [XML_file]
