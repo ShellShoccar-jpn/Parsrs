@@ -37,7 +37,7 @@ export IFS LANG=C LC_ALL=C PATH
 print_usage_and_exit () {
   cat <<-__USAGE 1>&2
 	Usage : ${0##*/} [JSON_value_textfile]
-	Wed Sep 14 17:30:48 JST 2016
+	Wed Sep 14 22:19:55 JST 2016
 __USAGE
   exit 1
 }
@@ -80,129 +80,130 @@ ETX=$(printf '\003') # Use to mark empty value
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# === Open the "JSONPath-indexed value" file =========================
-cat "$file"                                                   |
-#                                                             #
-# === Escape all of " "s and TABs in the value field to temporarily ==
-sed '/^[^ '"$HT"']\{1,\}$/s/$/ /'                             |
-sed 's/ /'$FS'/'                                              |
-tr  " $HT$FS" "$ACK$NAK "                                     |
-#                                                             #
-# === Normalize the value field depending on type ====================
-awk '$2~/^".*"$/               {print $0             ;next;}  # #<-string
-     $2~/^-?([1-9][0-9]*|0)(\.[0-9]+)?([Ee][+-][0-9]+)?$/{    # #<-number
-                                print $0             ;next;}  #
-     $2~/^(null|true|false)$/  {print $0             ;next;}  # #<-boolians
-     $2!=""                    {print $1,"\"" $2 "\"";next;}  # #<-unquoted-str
-     $1~/[^].]$/               {print $1,"\"\""      ;next;}  # #<-empty-str
-     "EMPTY_CONTAINER"         {print $1,"'$ETX'"    ;next;}' | #<-empty-field
-#                                                             #
-# === Add the prefix of type (Hash or List array), and split into KEYs
-awk '{s=$1;                                                   #
-      gsub(/\./        ," H:"  ,s);                           #
-      gsub(/\[[0-9]+\]/," L:&" ,s);                           #
-      sub( /h:$/       ," H:{}",s);                           #
-      print s,$2                  ;}'                         |
-#                                                             #
-# === Cut the first KEY because every line also has it ===============
-sed 's/^\$ //'                                                |
-#                                                             #
-# === (For debuggin code) ============================================
-#cat; exit 0                                                  #
-#                                                             #
-# === Build the JSON data ============================================
-awk '# --- initialize                                         #
-     BEGIN{                                                   #
-       OFS="";ORS="";                                         #
-       last_depth =0 ; # depth of the last line               #
-       last_key[0]=""; # each string of last keys             #
-     }                                                        #
-     # --- main loop --------------------------               #
-     { # 1) get the value field and unescape <0x20>s and TABs #
-       val=$NF;                                               #
-       gsub(/'$ACK'/," " ,val);                               #
-       gsub(/'$NAK'/,"\t",val);                               #
-       #                                                      #
-       # 2) compare the path with the last one                #
-       curr_depth=NF-1; # depth of the current line           #
-       same_depth=0   ; # number of keys which are same from top
-       j=(curr_depth<last_depth)?curr_depth:last_depth;       #
-       for (i=1; i<=j; i++) {                                 #
-         if($i==last_key[i]){same_depth=i;}else{break;}       #
-       }                                                      #
-       if (same_depth>0                 &&                    #
-           substr($same_depth,1,1)=="H" &&                    #
-           same_depth==curr_depth         ) {                 #
-         same_depth--;                                        #
-         if (same_depth>0                 &&                  #
-             substr($same_depth,1,1)=="L" &&                  #
-             substr($(same_depth+1),1,1)==substr(last_key[same_depth+1],1,1)) {
-           same_depth--;                                      #
-         }                                                    #
-       }                                        # (debug)     #
-       #print "same_depth=",same_depth,"\n" > "/dev/stderr";  #
-       #                                                      #
-       # 3) move the key tree and generate the corresponding JSON string
-       #    (up to the top of the tree)                       #
-       s="";                                                  #
-       for (i=last_depth  ; i> same_depth; i--) {             #
-         if   (substr(last_key[i],1,1)=="H") { s = s "}"; }   #
-         else                                { s = s "]"; }   #
-       }                                                      #
-       #                                                      #
-       # 4) move the key tree and generate the corresponding JSON string
-       #    (down to the bottom of the tree)                  #
-       for (i=same_depth+1; i<=curr_depth; i++) {             #
-         if   (substr($i,1,1)=="H") { s = s "{\n\"" substr($i,3) "\":"; }
-         else                       { s = s "["                       ; }
-       }                                                      #
-       #                                                      #
-       # 5) if it moves in the same level as a result,        #
-       #    replace the JSONS chrs in the string with ","     #
-       sub( /(\}\{|\]\[)/,","  ,s);                           #
-       gsub(/\}/         ,"\n}",s);                           #
-       if (s=="" ) {s="," ;}                                  #
-       if (same_depth>0 && substr($same_depth,1,1)=="L") {    #
-         if      (sub(/^[{[]/,",&",s)) {}                     #
-         else if (sub(/[]}]$/,"&,",s)) {}                     #
-       }                                                      #
-       #                                                      #
-       # 6) print the JSON string with the value string       #
-       #    (however it must be printed only string for empty-field)
-       if      (val        !="'$ETX'") {print s,val                  ;}
-       else if ($curr_depth=="H:"    ) {print substr(s,1,length(s)-4);}
-       else                            {print s                      ;}
-       #                                                      #
-       # 7) copy every KEY string to the last KEY variables   #
-       if     (curr_depth > last_depth) {                     #
-         for (i=same_depth+1; i<=curr_depth; i++) {           #
-           last_key[i]=$i                                     #
-         }                                                    #
-       } else {                                               #
-         for (i=last_depth  ; i> curr_depth; i--) {           #
-           delete last_key[i];                                #
-         }                                                    #
-         for (              ; i> same_depth; i--) {           #
-           last_key[i]=$i                                     #
-         }                                                    #
-       }                                                      #
-       last_depth=curr_depth;                                 #
-     }                                                        #
-     # --- the last loop --------------------------           #
-     END{                                                     #
-       # 1) move the key tree and generate the corresponding JSON string
-       #    (down to the bottom of the tree)                  #
-       same_depth=0;                                          #
-       s="";                                                  #
-       for (i=last_depth  ; i> same_depth; i--) {             #
-         if   (substr(last_key[i],1,1)=="H") { s = s "}"; }   #
-         else                                { s = s "]"; }   #
-       }                                                      #
-       #                                                      #
-       # 2) print the JSON string                             #
-       gsub(/\}/,"\n}",s);                                    #
-       print s;                                               #
-     }' |                                                     #
-#                                                             #
-# === Insert the break chr. at the last of the data ==================
-grep ^                                                        #
+# === Open the "JSONPath-indexed value" file ===================================
+cat "$file"                                                                    |
+#                                                                              #
+# === Escape all of " "s and TABs in the value field to temporarily ============
+sed '/^[^ '"$HT"']\{1,\}$/s/$/ /'                                              |
+sed 's/ /'$FS'/'                                                               |
+tr  " $HT$FS" "$ACK$NAK "                                                      |
+#                                                                              #
+# === Normalize the value field depending on type ==============================
+awk '$2~/^".*"$/              {print $0             ;next;} #<-string          #
+     $2~/^-?([1-9][0-9]*|0)(\.[0-9]+)?([Ee][+-][0-9]+)?$/ { #<-number          #
+                               print $0             ;next;}                    #
+     $2~/^(null|true|false)$/ {print $0             ;next;} #<-boolians        #
+     $2!=""                   {s=$2; gsub(/"/,"\\\"",s);    #<-non-quoted-str  #
+                               print $1,"\"" s "\"" ;next;}                    #
+     $1~/[^].]$/              {print $1,"\"\""      ;next;} #<-empty-string    #
+     "EMPTY_CONTAINER"        {print $1,"'$ETX'"    ;next;} #<-empty-field   ' |
+#                                                                              #
+# === Add the prefix of type (Hash or List array), and split into KEYs =========
+awk '{s=$1;                                                                    #
+      gsub(/\./        ," H:"  ,s);                                            #
+      gsub(/\[[0-9]+\]/," L:&" ,s);                                            #
+      sub( /h:$/       ," H:{}",s);                                            #
+      print s,$2                  ;}'                                          |
+#                                                                              #
+# === Cut the first KEY because every line also has it =========================
+sed 's/^\$ //'                                                                 |
+#                                                                              #
+# === (For debuggin code) ======================================================
+#cat; exit 0                                                                   #
+#                                                                              #
+# === Build the JSON data ======================================================
+awk '# --- initialize ------------------------------------------------         #
+     BEGIN{                                                                    #
+       OFS="";ORS="";                                                          #
+       last_depth =0 ; # depth of the last line                                #
+       last_key[0]=""; # each string of last keys                              #
+     }                                                                         #
+     # --- main loop -------------------------------------------------         #
+     { # 1) get the value field and unescape <0x20>s and TABs                  #
+       val=$NF;                                                                #
+       gsub(/'$ACK'/," " ,val);                                                #
+       gsub(/'$NAK'/,"\t",val);                                                #
+       #                                                                       #
+       # 2) compare the path with the last one                                 #
+       curr_depth=NF-1; # depth of the current line                            #
+       same_depth=0   ; # number of keys which are same from top               #
+       j=(curr_depth<last_depth)?curr_depth:last_depth;                        #
+       for (i=1; i<=j; i++) {                                                  #
+         if($i==last_key[i]){same_depth=i;}else{break;}                        #
+       }                                                                       #
+       if (same_depth>0                 &&                                     #
+           substr($same_depth,1,1)=="H" &&                                     #
+           same_depth==curr_depth         ) {                                  #
+         same_depth--;                                                         #
+         if (same_depth>0                 &&                                   #
+             substr($same_depth,1,1)=="L" &&                                   #
+             substr($(same_depth+1),1,1)==substr(last_key[same_depth+1],1,1)){ #
+           same_depth--;                                                       #
+         }                                                                     #
+       }                                        # (debug)                      #
+       #print "same_depth=",same_depth,"\n" > "/dev/stderr";                   #
+       #                                                                       #
+       # 3) move the key tree and generate the corresponding JSON string       #
+       #    (up to the top of the tree)                                        #
+       s="";                                                                   #
+       for (i=last_depth  ; i> same_depth; i--) {                              #
+         if   (substr(last_key[i],1,1)=="H") { s = s "}"; }                    #
+         else                                { s = s "]"; }                    #
+       }                                                                       #
+       #                                                                       #
+       # 4) move the key tree and generate the corresponding JSON string       #
+       #    (down to the bottom of the tree)                                   #
+       for (i=same_depth+1; i<=curr_depth; i++) {                              #
+         if   (substr($i,1,1)=="H") { s = s "{\n\"" substr($i,3) "\":"; }      #
+         else                       { s = s "["                       ; }      #
+       }                                                                       #
+       #                                                                       #
+       # 5) if it moves in the same level as a result,                         #
+       #    replace the JSONS chrs in the string with ","                      #
+       sub( /(\}\{|\]\[)/,","  ,s);                                            #
+       gsub(/\}/         ,"\n}",s);                                            #
+       if (s=="" ) {s="," ;}                                                   #
+       if (same_depth>0 && substr($same_depth,1,1)=="L") {                     #
+         if      (sub(/^[{[]/,",&",s)) {}                                      #
+         else if (sub(/[]}]$/,"&,",s)) {}                                      #
+       }                                                                       #
+       #                                                                       #
+       # 6) print the JSON string with the value string                        #
+       #    (however it must be printed only string for empty-field)           #
+       if      (val        !="'$ETX'") {print s,val                  ;}        #
+       else if ($curr_depth=="H:"    ) {print substr(s,1,length(s)-4);}        #
+       else                            {print s                      ;}        #
+       #                                                                       #
+       # 7) copy every KEY string to the last KEY variables                    #
+       if     (curr_depth > last_depth) {                                      #
+         for (i=same_depth+1; i<=curr_depth; i++) {                            #
+           last_key[i]=$i                                                      #
+         }                                                                     #
+       } else {                                                                #
+         for (i=last_depth  ; i> curr_depth; i--) {                            #
+           delete last_key[i];                                                 #
+         }                                                                     #
+         for (              ; i> same_depth; i--) {                            #
+           last_key[i]=$i                                                      #
+         }                                                                     #
+       }                                                                       #
+       last_depth=curr_depth;                                                  #
+     }                                                                         #
+     # --- the last loop ---------------------------------------------         #
+     END{                                                                      #
+       # 1) move the key tree and generate the corresponding JSON string       #
+       #    (down to the bottom of the tree)                                   #
+       same_depth=0;                                                           #
+       s="";                                                                   #
+       for (i=last_depth  ; i> same_depth; i--) {                              #
+         if   (substr(last_key[i],1,1)=="H") { s = s "}"; }                    #
+         else                                { s = s "]"; }                    #
+       }                                                                       #
+       #                                                                       #
+       # 2) print the JSON string                                              #
+       gsub(/\}/,"\n}",s);                                                     #
+       print s;                                                                #
+     }'                                                                        |
+#                                                                              #
+# === Insert the break chr. at the last of the data ============================
+grep ^                                                                         #
