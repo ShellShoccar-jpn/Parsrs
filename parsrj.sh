@@ -35,11 +35,12 @@
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
+# Written by 321516 (@shellshoccarjpn) / Date : Sep 15, 2016
 #
-# This is a public-domain software. It measns that all of the people
-# can use this with no restrictions at all. By the way, I am fed up
-# the side effects which are broght about by the major licenses.
+# This is a public-domain software (CC0). It measns that all of the
+# people can use this for any purposes with no restrictions at all.
+# By the way, I am fed up the side effects which are broght about by
+# the major licenses.
 
 
 set -u
@@ -47,7 +48,8 @@ PATH='/usr/bin:/bin'
 IFS=$(printf ' \t\n_'); IFS=${IFS%_}
 export IFS LANG=C LC_ALL=C PATH
 
-DQ=$(printf '\026')              # 値のダブルクォーテーション(DQ)エスケープ用
+HT=$(printf '\t'   )             # タブ
+DQ=$(printf '\026' )             # 値のダブルクォーテーション(DQ)エスケープ用
 LF=$(printf '\\\n_');LF=${LF%_}  # sed内で改行を変数として扱うためのもの
 
 file=''
@@ -73,7 +75,7 @@ case $# in [!0]*)
     elif [ \( "_${arg#-ls}" != "_$arg" \) -a \( -z "$file" \) ]; then
       ls=${arg#-ls}
     elif [ \( "_${arg#-fn}" != "_$arg" \) -a \( -z "$file" \) -a \
-           -n "$(echo -n "_${arg#-fn}" | grep '^_[0-9]\{1,\}$')" ]; then
+           -n "$(printf '%s\n' "${arg#-fn}" | grep '^[0-9]\{1,\}$')" ]; then
       fn=${arg#-fn}
       fn=$((fn+0))
     elif [ \( "_$arg" = '_-li' \) -a \( -z "$file" \) ]; then
@@ -157,8 +159,10 @@ BEGIN {                                                                  #
 # === DQ始まり以外の行の"{","}","[","]",":",","の前後に改行を挿入 ====== #
 sed "/^[^\"]/s/\([][{}:,]\)/$LF\1$LF/g"                                  |
 #                                                                        #
-# === 無駄な空行は予め取り除いておく =================================== #
-grep -v "$(printf '^[\t ]*$')"                                           |
+# === 無駄な前後空白と空行は予め取り除いておく ========================= #
+sed 's/^[ '"$HT"']\{1,\}//'                                              |
+sed 's/[ '"$HT"']\{1,\}$//'                                              |
+grep -v '^[ '"$HT"']*$'                                                  |
 #                                                                        #
 # === 行頭の記号を見ながら状態遷移させて処理(*1,strict版*2) ============ #
 # (*1 エスケープしたDQもここで元に戻す)                                  #
@@ -343,10 +347,16 @@ BEGIN {                                                                  #
       }                                                                  #
       # 2)DQ囲みになっている場合は予めそれを除去しておく                 #
       # 3)事前にエスケープしていたDQをここで元に戻す                     #
-      key=(match(line,/^".*"$/))?substr(line,2,RLENGTH-2):line;          #
-      gsub(DQ,"\\\"",key);                                               #
-      '"$optt"'value=key;                                                #
-      '"$unoptt"'value=line;                                             #
+      if (match(line,/^".*"$/)) {                                        #
+        gsub(DQ,"\\\"",line);                                            #
+        key=substr(line,2,length(line)-2);                               #
+        '"$optt"'value=key;                                              #
+        '"$unoptt"'value=line;                                           #
+      } else                    {                                        #
+        gsub(DQ,"\\\"",line);                                            #
+        value=line;                                                      #
+        key=value;                                                       #
+      }                                                                  #
       # 4)データ種別スタック最上位値によって分岐                         #
       # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          #
       s=datacat_stack[stack_depth];                                      #
