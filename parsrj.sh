@@ -360,7 +360,7 @@ BEGIN {                                                                  #
       } else                    {                                        #
         gsub(DQ,"\\\"",line);                                            #
         key=line;                                                        #
-        value=value;                                                     #
+        value=line;                                                      #
       }                                                                  #
       '"$unopte"'gsub(/ / ,"\\u0020",key);                               #
       '"$unopte"'gsub(/\./,"\\u002e",key);                               #
