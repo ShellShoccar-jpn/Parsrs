@@ -34,6 +34,7 @@
 #         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
 #         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
 #         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
+#         : -e     は、キー名に" ",".","[","]"を含む困ったJSONを扱う場合に指定
 #
 # Written by 321516 (@shellshoccarjpn) / Date : Sep 15, 2016
 #
@@ -60,11 +61,12 @@ lp='['
 ls=']'
 fn=0
 unoptli='#'
+unopte='#'
 optt=''
 unoptt='#'
 case $# in [!0]*)
   for arg in "$@"; do
-    if [ \( "_${arg#-sk}" != "_$arg" \) -a \( -z "$file" \) ]; then
+    if   [ \( "_${arg#-sk}" != "_$arg" \) -a \( -z "$file" \) ]; then
       sk=${arg#-sk}
     elif [ \( "_${arg#-rt}" != "_$arg" \) -a \( -z "$file" \) ]; then
       rt=${arg#-rt}
@@ -90,6 +92,8 @@ case $# in [!0]*)
     elif [ \( "_$arg" = '_-t' \) -a \( -z "$file" \) ]; then
       optt='#'
       unoptt=''
+    elif [ \( "_$arg" = '_-e' \) -a \( -z "$file" \) ]; then
+      unopte=''
     elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
       file=$arg
     elif [ \( "_$arg" = "_-" \) -a \( -z "$file" \) ]; then
@@ -108,6 +112,7 @@ Options : -sk<s> はキー名文字列内にあるスペースの置換文字列
         : -li    は配列行終了時に添字なしの配列フルパス行(値は空)を挿入する
         : --xpathは階層表現をXPathにする(-rt -kd/ -lp[ -ls] -fn1 -liと等価)
         : -t     は、値の型を区別する(文字列はダブルクォーテーションで囲む)
+        : -e     は、キー名に" ",".","[","]"を含む困ったJSONを扱う場合に指定
 ______USAGE
       exit 1
     fi
@@ -354,9 +359,13 @@ BEGIN {                                                                  #
         '"$unoptt"'value=line;                                           #
       } else                    {                                        #
         gsub(DQ,"\\\"",line);                                            #
-        value=line;                                                      #
-        key=value;                                                       #
+        key=line;                                                        #
+        value=value;                                                     #
       }                                                                  #
+      '"$unopte"'gsub(/ / ,"\\u0020",key);                               #
+      '"$unopte"'gsub(/\./,"\\u002e",key);                               #
+      '"$unopte"'gsub(/\[/,"\\u005b",key);                               #
+      '"$unopte"'gsub(/\]/,"\\u005d",key);                               #
       # 4)データ種別スタック最上位値によって分岐                         #
       # 4a)"l0:配列(初期要素値待ち)"又は"l1:配列(値待ち)"の場合          #
       s=datacat_stack[stack_depth];                                      #
