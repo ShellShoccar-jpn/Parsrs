@@ -1,35 +1,66 @@
-#! /bin/sh
+#!/bin/sh
+
+######################################################################
 #
 # UNESCJ.SH
-#    JSONによるエスケープ文字を含む文字列をアンエスケープする
-#    ・Unicodeエスケープが含まれている場合はその部分をUTF-8化する
-#    ・このスクリプトはJSONの値部分のみの処理を想定している
-#      (値の中に改行を示すエスケープがあったら素直に改行に変換する。
-#       これが困る場合は -n オプションを使う。すると "\n" と出力される)
-#    ・JSON文字列のパース(キーと値の分離)はparsrj.shで予め行うこと
+#   A Unicode Escape Sequence Decoder for JSON
 #
-# Usage: unescj.sh [-n] [JSON_value_textfile]
+# === What is This? ===
+# * This command converts Unicode escape sequence strings to UTF-8.
+# * But the command is a converter not for original JSONs but for
+#   beforehand extracted strings from JSONs.
+# * Basically, this command is for the text data (JSONPath-value) after
+#   converting by "parsrj.sh" command.
+# * When you convert JSONPath-value, you have to use "-n" option to
+#   avoid being broken as a JSONPath-value format by being inserted into
+#   <0x0A>s which has been converted from "\ux000a"s.
 #
-# Written by 321516 (@shellshoccarjpn) / Date : Sep 15, 2016
+# === Usage ===
+# Usage: unescj.sh [-n] [JSONPath-value_textfile]
+#
+#
+# Written by 321516 (@shellshoccarjpn) / 2017-01-27 14:53:31 JST
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
 # By the way, I am fed up the side effects which are broght about by
 # the major licenses.
+#
+######################################################################
 
 
-set -u
-PATH=/bin:/usr/bin
-IFS=$(printf ' \t\n_'); IFS=${IFS%_}
-export IFS LANG=C LC_ALL=C PATH
+######################################################################
+# Initial configuration
+######################################################################
 
-BS=$( printf '\010' )              # バックスペース
-TAB=$(printf '\011' )              # タブ
-LFs=$(printf '\\\n_');LFs=${LFs%_} # 改行(sedコマンド取扱用)
-FF=$( printf '\014' )              # 改ページ
-CR=$( printf '\015' )              # キャリッジリターン
-ACK=$(printf '\006' )              # "\\"の一時退避用
+# === Initialize shell environment ===================================
+set -eu
+export LC_ALL=C
+export PATH="$(command -p getconf PATH):${PATH:-}"
 
+# === Usage printing function ========================================
+print_usage_and_exit () {
+  cat <<-USAGE 1>&2
+	Usage : ${0##*/} [-n] [JSONPath-value_textfile]
+	2017-01-29 16:08:12 JST
+	USAGE
+  exit 1
+}
+
+
+######################################################################
+# Prepare for the Main Routine
+######################################################################
+
+# === Define some chrs. to escape some special chrs. temporarily =====
+BS=$( printf '\010' )              # Back Space
+TAB=$(printf '\011' )              # Tab
+LFs=$(printf '\\\n_');LFs=${LFs%_} # Line Feed (for sed command)
+FF=$( printf '\014' )              # New Pafe (Form Feed)
+CR=$( printf '\015' )              # Carridge Return
+ACK=$(printf '\006' )              # Escape chr. for "\\"
+
+# === Get the options and the filepath ===============================
 nopt=0
 case "$#" in [!0]*) case "$1" in '-n') nopt=1;shift;; esac;; esac
 case "$#" in
@@ -39,25 +70,29 @@ case "$#" in
        file=$1
      fi
      ;;
-  *) printf 'Usage : %s [-n] [JSON_value_textfile]\n' "${0##*/}" 1>&2
-     exit 1
+  *) print_usage_and_exit
      ;;
 esac
 
-# === データの流し込み ======================================================= #
+
+######################################################################
+# Main Routine (Convert and Generate)
+######################################################################
+
+# === Open the data source =================================================== #
 cat "$file"                                                                    |
 #                                                                              #
-# === "\\"を一時的にACKに退避 ================================================ #
-sed 's/\\\\/'"$ACK"'/g'                                                        |
+# === Escape "\\" to ACK temporarily ========================================= #
+sed 's/\\\\/'"$ACK"'/g' 2>/dev/null                                            |
 #                                                                              #
-# === もとからあった改行に印"\N"をつけ、手前に改行も挿入 ===================== #
+# === Mark the original <0x0A> with <0x0A>+"\N" after it ===================== #
 sed 's/$/'"$LFs"'\\N/'                                                         |
 #                                                                              #
-# === Unicodeエスケープ文字列(\uXXXX)の手前に改行を挿入し、デコード準備 ====== #
+# === Insert <0x0A> into the behind of "\uXXXX" ============================== #
 sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LFs"'\1/g'                                   |
 #                                                                              #
-# === Unicodeエスケープ文字列をデコード ====================================== #
-#     (但し一部の文字は次のように変換する。                                    #
+# === Unescape "\uXXXX" into UTF-8 =========================================== #
+#     (But the following ones are transfer the following strings               #
 #      \u000a -> \n, \u000d -> \r, \u005c -> \\, \u0000 -> \0, \u0006 -> \A)   #
 awk '                                                                          #
 BEGIN {                                                                        #
@@ -69,12 +104,12 @@ BEGIN {                                                                        #
   }                                                                            #
   bhex2chr["00"]="\\0" ;                                                       #
   bhex2chr["06"]="\\A" ;                                                       #
-  bhex2chr["0a"]="\\n" ;                                                       #
-  bhex2chr["0d"]="\\r" ;                                                       #
-  bhex2chr["5c"]="\\\\";                  # 0000～FFFFの16進値を10進値に変換   #
-  #for(i=65535;i>=0;i--) {          # (b) # する際、00～FFまでの連想配列256個  #
-  #  whex2int[sprintf("%02x",i)]=i; #  :  # を作って(a)2桁ずつ2度使う方が、    #
-  #}                                #  :  # (b)を1度使う方が若干速かった       #
+  bhex2chr["0a"]="\\n" ;                  # Both (a) and (b) are also the      #
+  bhex2chr["0d"]="\\r" ;                  # transferring table from a 2 bytes  #
+  bhex2chr["5c"]="\\\\";                  # of hex number to a decimal one.    #
+  #for(i=65535;i>=0;i--) {          # (b) # (a) is to use 256 keys twice. (b)  #
+  #  whex2int[sprintf("%02x",i)]=i; #  :  # is to use 65536 keys once. And (a) #
+  #}                                #  :  # was a litter faster than (b).      #
                                                                                #
   while (getline l) {                                                          #
     if (l=="\\N") {print "\n"; continue; }                                     #
@@ -99,7 +134,7 @@ BEGIN {                                                                        #
     print l;                                                                   #
   }                                                                            #
 }'                                                                             |
-# === "\n","\0"（および"\\"）以外のエスケープ文字列をデコード ================ #
+# === Unsscape escaped strings except "\n", "\0" and "\\" ==================== #
 sed 's/\\"/"/g'                                                                |
 sed 's/\\\//\//g'                                                              |
 sed 's/\\b/'"$BS"'/g'                                                          |
@@ -107,15 +142,15 @@ sed 's/\\f/'"$FF"'/g'                                                          |
 sed 's/\\r/'"$CR"'/g'                                                          |
 sed 's/\\t/'"$TAB"'/g'                                                         |
 #                                                                              #
-# === "-n"オプションがないなら "\0","\n","\\" もデコード ===================== #
+# === Also unescape "\0", "\n", "\\" when "-n" option is not given =========== #
 case "$nopt" in                                                                #
-  0) sed 's/\\0//g'                             |  # "\0"は<0x00>にせず消す    #
-     sed 's/\\n/'"$LFs"'/g'                     |  #   :                       #
-     sed 's/'"$ACK"'/\\\\/g'                    |  # 退避していた"\\"を戻し、  #
-     sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |  # \Aを<ACK>に戻す。         #
-     sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |  #   :                       #
+  0) sed 's/\\0//g'                             |  # - "\0" should be deleted  #
+     sed 's/\\n/'"$LFs"'/g'                     |  #   without conv to <0x00>  #
+     sed 's/'"$ACK"'/\\\\/g'                    |  # - Unescaoe escaped "\\"s  #
+     sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |  #   and then restore "\A"s  #
+     sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |  #   to <ACK>s               #
      sed 's/^\(\(\\\\\)*\)\\A/\1'"$ACK"'/g'     |  #   :                       #
-     sed 's/\\\\/\\/g'                          ;; # "\\"を"\"にデコード       #
+     sed 's/\\\\/\\/g'                          ;; # - Unescape "\\"s into "\"s#
   *) sed 's/'"$ACK"'/\\\\/g'                    |                              #
      sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |                              #
      sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |                              #
