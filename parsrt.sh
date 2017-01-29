@@ -1,142 +1,186 @@
 #! /bin/sh
+
+######################################################################
 #
-# parsrt.sh
-#    タブ区切り値(TSV)ファイルから
-#    行番号列番号インデックス付き値(line field indexed value)テキストへの正規化
-#    (例)
-#     aaa<TAB>"b""bb"<TAB>"c    (←"<TAB>"は実際にはタブを表す)
-#     cc"<TAB>d d
-#     "f<TAB>f"
-#     ↓(通常の場合)  ↓(ダブルクォーテーションにRFC 4180同等の意味を付けた場合)
-#     1 1 aaa         1 1 aaa
-#     1 2 "b""bb"     1 2 b"bb
-#     1 3 "c          1 3 c\ncc
-#     2 1 cc"         1 4 d d
-#     2 2 d d         2 1 f<TAB>f
-#     3 1 "f
-#     3 2 f"
-#     ◇よって grep '^1 3 ' | sed 's/^[^ ]* [^ ]* //' などと
-#       後ろに grep&sed をパイプで繋げれば目的の行・列の値が得られる。
-#       さらにこれを
-#         sed 's/\\n/\<LF>/g' (←"<LF>"は実際には改行を表す)
-#       にパイプすれば、元データに改行を含む場合でも完全な値として取り出せる。
+# PARSRT.SH
+#   A TSV Parser Which Convert Into "Line#-Field#-value"
 #
-# Usage: parsrj.sh [-dq] [-lf<str>] [CSV_file]
-# Options : -dq は、ダブルクォーテーションにRFC 4180と同様の意味を持たせる。
-#           -lf は、値として含まれている改行を表現する文字列指定(デフォルトは
-#               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
-#               尚、これを指定すると、-dqオプションが指定されたものと扱われる。
+# === What is "Line#-Field#-value" Formatted Text? ===
+# 1. Format
+#    1 1 <cell_value_which_was_in_(1,1)>
+#    1 2 <cell_value_which_was_in_(1,2)>
+#                :
+#    1 m <cell_value_which_was_in_(1,m)>
+#    2 1 <cell_value_which_was_in_(2,1)>
+#                :
+#                :
+#    m n <cell_value_which_was_in_(m,n)>
 #
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
+# === This Command will Do Like the Following Conversion ===
+# 1. Input Text (TSV)
+#    aaa<TAB>"b""bb"<TAB>"c    ("<TAB>" means <0x09> in practical terms)
+#    cc"<TAB>d d
+#    "f<TAB>f"
+# 2. Output Text This Command Converts Into
+#    (in case which interprets '"' as the same meaning as RFC 4180 CSV)
+#    1 1 aaa         1 1 aaa
+#    1 2 "b""bb"     1 2 b"bb
+#    1 3 "c          1 3 c\ncc
+#    2 1 cc"         1 4 d d
+#    2 2 d d         2 1 f<TAB>f
+#    3 1 "f
+#    3 2 f"
 #
-# This is a public-domain software. It measns that all of the people
-# can use this with no restrictions at all. By the way, I am fed up
-# the side effects which are broght about by the major licenses.
+# === Usage ===
+# Usage   : parsrt.sh [options] [TSV_file]
+# Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
+#           -lf Replaces the newline sign "\n" with <s>. And in this mode,
+#               also replaces \ with \\.
+#               When this option is set, this command regards "-dq" option
+#               is also set.
+#
+#
+# Written by 321516 (@shellshoccarjpn) / 2017-01-30 01:46:10 JST
+#
+# This is a public-domain software (CC0). It measns that all of the
+# people can use this for any purposes with no restrictions at all.
+# By the way, I am fed up the side effects which are broght about by
+# the major licenses.
+#
+######################################################################
 
 
-set -u
-PATH='/usr/bin:/bin'
-IFS=$(printf ' \t\n_'); IFS=${IFS%_}
-export IFS LANG=C LC_ALL=C PATH
+######################################################################
+# Initial configuration
+######################################################################
 
-HT=$(printf '\011')              # タブ(列区切り文字)
-SO=$(printf '\016')              # ダブルクォーテーション*2のエスケープ印
-SI=$(printf '\017')              # 値としての改行文字列エスケープ印
-RS=$(printf '\036')              # 1列1行化後に元々の改行を示すための印
-US=$(printf '\037')              # 1列1行化後に元々の列区切りを示すための印
-LF=$(printf '\\\n_');LF=${LF%_}  # SED内で改行を変数として扱うためのもの
+# === Initialize shell environment ===================================
+set -eu
+export LC_ALL=C
+export PATH="$(command -p getconf PATH):${PATH:-}"
 
+# === Usage printing function ========================================
+print_usage_and_exit () {
+  cat <<-USAGE 1>&2
+	Usage   : parsrt.sh [options] [TSV_file]
+	Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
+	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
+	              also replaces \ with \\.
+	              When this option is set, this command regards "-dq" option
+	              is also set.
+	2017-01-30 01:46:10 JST
+	USAGE
+  exit 1
+}
+
+
+######################################################################
+# Parse Arguments
+######################################################################
+
+# === Print the usage when "--help" is put ===========================
+case "$# ${1:-}" in
+  '1 -h'|'1 --help'|'1 --version') print_usage_and_exit;;
+esac
+
+# === Get the options and the filepath ===============================
 optdq=0
 optlf=''
 bsesc='\\'
 file=''
-printhelp=0
+case $# in 0) set -- -;; esac
 i=0
-case $# in [!0]*)
-  for arg in "$@"; do
-    i=$((i+1))
-    if [   \( "_${arg#-dq}" != "_$arg" \) -a \( -z "$file" \) ]; then
-      optdq=1
-    elif [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
-      optdq=1
-      optlf=$(printf '%s' "${arg#-lf}_" |
-              tr -d '\n'                |
-              sed 's/\([\&/]\)/\\\1/g'  )
-      optlf=${optlf%_}
-    elif [ \( $i -eq $# \) -a \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
-      file='-'
-    elif [ \( $i -eq $# \) -a \( \( -f "$arg" \) -o \( -c "$arg" \) \) \
-           -a \( -z "$file" \) ]
-    then
-      file=$arg
-    else
-      printhelp=1;
-    fi
-  done
-  ;;
-esac
-if [ $printhelp -ne 0 ]; then
-  cat <<-__USAGE
-	Usage: ${0##*/} [-dq] [-lf<str>] [CSV_file]
-	Options : -dq は、ダブルクォーテーションにRFC 4180と同様の意味を持たせる。
-	          -lf は、値として含まれている改行を表現する文字列指定(デフォルトは
-	              "\n"であり、この場合は元々の \ が \\ にエスケープされる)
-	              尚、これを指定すると、-dqオプションが指定されたものと扱われる。
-__USAGE
-  exit 1
-fi
+for arg in "$@"; do
+  i=$((i+1))
+  if   [ "_${arg#-dq}" != "_$arg" ] && [ -z "$file" ]; then
+    optdq=1
+  elif [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
+    optdq=1
+    optlf=$(printf '%s' "${arg#-lf}_"                |
+            tr -d '\n'                               |
+            sed 's/\([\&/]\)/\\\1/g' 2>/dev/null || :)
+    optlf=${optlf%_}
+  elif [ $i -eq $# ] && [ "_$arg" = '_-' ] && [ -z "$file" ]; then
+    file='-'
+  elif [ $i -eq $# ] && ([ -f "$arg" ] || [ -c "$arg" ]) && [ -z "$file" ]; then
+    file=$arg
+  else
+    print_usage_and_exit
+  fi
+done
 [ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
 [ -z "$file"  ] && file='-'
 
-### 通常のTSVファイル(ダブルクォーテーションに特別な意味無し)の場合の処理 ######
-#
+
+######################################################################
+# Prepare for the Main Routine
+######################################################################
+
+# === Define some chrs. to escape some special chrs. temporarily =====
+HT=$( printf '\011')               # TAB (field separator)
+SO=$( printf '\016')               # Escape sign for '""'
+SI=$( printf '\017')               # Escape sign for <0x0A> as a value
+RS=$( printf '\036')               # Sign for record separator of CSV
+US=$( printf '\037')               # Sign for field separator of CSV
+CR=$( printf '\015')               # Carridge Return
+LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
+
+
+######################################################################
+# Main Routine (Convert and Generate) #1
+#  in case which '"' DOES NOT have the same meaning as RFC 4180 CSV
+######################################################################
 case $optdq in 0)
-  # === データの流し込み ============================================ #
-  cat "$file"                                                         |
-  #                                                                   #
-  # === 行末のCRを取り除く ========================================== #
-  sed "s/$(printf '\r')\$//"                                          |
-  #                                                                   #
-  # === 各列を1行化するにあたり、元々の改行には予め印をつけておく === #
-  #     (元々の改行の後にRS行を挿入する)                              #
-  sed "s/\$/$LF$RS/"                                                  |
-  #                                                                   #
-  # === 1列1行化 ==================================================== #
-  tr "$HT" '\n'                                                       |
-  #                                                                   #
-  # === 先頭に行番号と列番号をつける ================================ #
-  awk '                                                               #
-    BEGIN{                                                            #
-      l=1;                                                            #
-      f=1;                                                            #
-      while (getline line) {                                          #
-        if (line == "'$RS'") {                                        #
-          l++;                                                        #
-          f=1;                                                        #
-        } else {                                                      #
-          print l, f, line;                                           #
-          f++;                                                        #
-        }                                                             #
-      }                                                               #
-    }                                                                 #
+  # === Open the TSV data source =================================== #
+  cat "$file"                                                        |
+  #                                                                  #
+  # === Remove <CR> at the end of every line ======================= #
+  sed "s/$CR\$//" 2>/dev/null                                        |
+  #                                                                  #
+  # === Mark record separators of CSV with RS after it in advance == #
+  sed "s/\$/$LF$RS/"                                                 |
+  #                                                                  #
+  # === Split all fields into indivisual lines ===================== #
+  tr "$HT" '\n'                                                      |
+  #                                                                  #
+  # === Assign the pair number of line and field on the head of line #
+  awk '                                                              #
+    BEGIN{                                                           #
+      l=1;                                                           #
+      f=1;                                                           #
+      while (getline line) {                                         #
+        if (line == "'$RS'") {                                       #
+          l++;                                                       #
+          f=1;                                                       #
+        } else {                                                     #
+          print l, f, line;                                          #
+          f++;                                                       #
+        }                                                            #
+      }                                                              #
+    }                                                                #
   '
   exit
 ;; esac
 
-### ダブルクォーテーションにRFC 4180と同様の意味がある場合の処理 ###############
-#
-# === データの流し込み ============================================== #
+######################################################################
+# Main Routine (Convert and Generate) #1
+#  in case which '"' have the same meaning as RFC 4180 CSV
+######################################################################
+
+# === Open the TSV data source ====================================== #
 cat "$file"                                                           |
 #                                                                     #
-# === 行末のCRを取り除く ============================================ #
-sed "s/$(printf '\r')\$//"                                            |
+# === Remove <CR> at the end of every line ========================== #
+sed "s/$CR\$//" 2>/dev/null                                           |
 #                                                                     #
-# === 値としてのダブルクォーテーションをエスケープ ================== #
-#     (但しnull囲みの""も区別が付かず、エスケープされる)              #
+# === Escape DQs as value =========================================== #
+#     (However '""'s meaning null are also escape for the moment)     #
 sed 's/""/'$SO'/g'                                                    |
 #                                                                     #
-# === 値としての改行を\nに変換 ====================================== #
-#     (ダブルクォーテーションが奇数個ならSI付けて次の行と結合する)    #
+# === Convert <0x0A>s as value into "\n" ============================ #
+#     (It's possible to distinguish it from the ones as CSV record    #
+#      separator if the number of DQs in a line is an odd number.     #
+#      And mark the point with <SI> and join with it the next line.)  #
 awk '                                                                 #
   BEGIN {                                                             #
     while (getline line) {                                            #
@@ -153,39 +197,37 @@ awk '                                                                 #
   }                                                                   #
 '                                                                     |
 #                                                                     #
-# === 各列を1行化するにあたり、元々の改行には予め印をつけておく ===== #
-#     (元々の改行の後にRS行を挿入する)                                #
+# === Mark record separators of CSV with RS after it in advance ===== #
 sed "s/\$/$LF$RS/"                                                    |
 #                                                                     #
-# === ダブルクォーテーション囲み列の1列1行化 ======================== #
-#     (その前後にスペースもあれば余計なのでここで取り除いておく)      #
-# (1/3)先頭からNF-1までのダブルクォーテーション囲み列の1列1行化       #
+# === Split fields which is quoted with DQ into individual lines ==== #
+#     (Also remove spaces behind and after the DQ field)              #
+# (1/3)Split the DQ fields from the top to NF-1                       #
 sed 's/ *\("[^"]*"\) *'"$HT"'/\1'"$LF$US$LF"'/g'                      |
-# (2/3)最後列(NF)のダブルクォーテーション囲み列の1列1行化             #
+# (2/3)Split the DQ fields at the end (NF)                            #
 sed 's/'"$HT"' *\("[^"]*"\) *$/'"$LF$US$LF"'\1/g'                     |
-# (3/3)ダブルクォーテーション囲み列が単独行だったらスペース除去だけ   #
+# (3/3)Remove spaces behind and after the single DQ field in line     #
 sed 's/^ *\("[^"]*"\) *$/\1/g'                                        |
 #                                                                     #
-# === ダブルクォーテーション囲みでない列の1列1行化 ================== #
-#     (単純にカンマを改行にすればよい)                                #
-#     (ただしダブルクォーテーション囲みの行は反応しないようにする)    #
+# === Split non-quoted fields into individual lines ================= #
+#     (It is simple, only convert "," to <0x0A> on non-quoted lines)  #
 sed '/['$RS'"]/!s/'"$HT"'/'"$LF$US$LF"'/g'                            |
 #                                                                     #
-# === ダブルクォーテーション囲みを外す ============================== #
-#     (単純にダブルクォーテーションを除去すればよい)                  #
-#     (値としてのダブルクォーテーションはエスケープ中なので問題無し)  #
+# === Unquote DQ-quoted field ======================================= #
+#     (It is also simple, only remove DQs. Because the DQs as value   #
+#      are all escaped now.)                                          #
 tr -d '"'                                                             |
 #                                                                     #
-# === エスケープしてた値としてのダブルクォーテーションを戻す ======== #
-#     (ただし、区別できなかったnull囲みの""も戻ってくるので適宜処理)  #
-# (1/3)まずは""に戻す                                                 #
+# === Unescape the DQs as value ===================================== #
+#     (However '""'s meaning null are also unescaped)                 #
+# (1/3)Unescape all '""'s                                             #
 sed 's/'$SO'/""/g'                                                    |
-# (2/3)null囲みの""だった場合はそれを空行に変換する                   #
+# (2/3)Convert only '""'s mean null into empty lines                  #
 sed 's/^ *"" *$//'                                                    |
-# (3/3)""(二重)を一重に戻す                                           #
+# (3/3)Convert the left '""'s, which are as value, into '"'s          #
 sed 's/""/"/g'                                                        |
 #                                                                     #
-# === 先頭に行番号と列番号をつける ================================== #
+# === Assign the pair number of line and field on the head of line == #
 awk '                                                                 #
   BEGIN{                                                              #
     l=1;                                                              #
@@ -203,7 +245,7 @@ awk '                                                                 #
   }                                                                   #
 '                                                                     |
 #                                                                     #
-# === 値としての改行のエスケープ(SI)を代替文字列に変換 ============== #
+# === Convert escaped <CR>s as value (SI) into the substitute str. == #
 if [ "_$bsesc" != '_\\' ]; then                                       #
   sed 's/\\/'"$bsesc"'/g'                                             #
 else                                                                  #

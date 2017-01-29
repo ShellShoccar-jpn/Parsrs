@@ -63,6 +63,7 @@ print_usage_and_exit () {
 	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
 	          -t     Doesn't quote with '"' or escape fields
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
+	2017-01-30 00:28:18 JST
 	USAGE
   exit 1
 }
@@ -120,7 +121,7 @@ LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# === Open the "Line#-Field#-value" data source ============
+# === Open the "Line#-Field#-value" data source ========== #
 cat "$file"                                                |
 #                                                          #
 # === Transfer line and field numbers separator to "_" === #

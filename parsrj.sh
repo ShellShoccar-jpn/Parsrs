@@ -167,7 +167,7 @@ export ls
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# === Open the JSON data source ==========================================
+# === Open the JSON data source ======================================== #
 cat "$file"                                                              |
 #                                                                        #
 # === Escape DQs and put each string between DQs into a sigle line ===== #

@@ -101,7 +101,7 @@ ETX=$(printf '\003') # Use to mark empty value
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# === Open the "JSONPath-value" data source ====================================
+# === Open the "JSONPath-value" data source ================================== #
 cat "$file"                                                                    |
 #                                                                              #
 # === Escape all of " "s and TABs in the value field to temporarily ============
