@@ -1,56 +1,120 @@
-#! /bin/sh
-#
-# parsrx.sh
-#    XMLテキストから
-#    XPathインデックス付き値(XPath-indexed value)テキスへの正規化
-#    (例)
-#     <foo>
-#       あはは
-#       <bar hoge="ほげ" piyo="ぴよ">えへへ<br /><script></script></bar>
-#       いひひ
-#     </foo>
-#     ↓
-#     /foo/bar/@hoge ほげ
-#     /foo/bar/@piyo ぴよ
-#     /foo/bar/br
-#     /foo/bar/script 
-#     /foo/bar えへへ
-#     /foo \n  あはは\n  \n  いひひ\n
-#     ◇第1列はXMLパス名(XPath形式：区切りは"/"、ただし属性名手前には"@")
-#     ◇第2列(最初のスペース文字の次以降全部)はそのパスの持つ値(空値の場合あり)
-#     ◇よって grep '^foo/bar ' | sed 's/^[^ ]* //' などと
-#       後ろに grep, sed をパイプで繋げれば目的のキーの値部分が取れる。
-#       さらにこれを sed 's/\\n[[:blank:]]*/\\n/g; s/\\n$//; s/^\\n//' 等に
-#       パイプすれば、前後の余計な改行やインデントを取り除け、さらに
-#       sed 's/\\n/\
-#       /g' などにパイプすれば、改行も元の姿に復元できる。
-#     ◇単独タグ(<br />など)の場合は、第1列の後にスペースが付かない。一方、
-#       別途閉じタグがある(<script></script>など)の場合はスペースが付く。
-#    (注意)
-#    ・XMLに準拠していないもの(記号がヘン,タグが正しく入れ子になっていない等)を
-#      与えられた場合は正常に正規化されることを保証できない
-#    ・HTMLも下記のような処理を予めして、XMLに準拠させれば扱える
-#      - 改行コードを\nにする(XMLの規約)
-#      - meta,link,br,img,input,hr,embed,area,base,col,keygen,param,source など
-#        閉じタグの無いタグは単独で閉じさせる
-#
-# Usage   : parsrx.sh [-c] [-n] [-lf<str>] [XML_file]
-# Options : -c  はタグ内に含まれる子タグの可視化
-#           -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
-#           -lf は値として含まれている改行を表現する文字列指定(デフォルトは
-#               "\n"であり、この場合は元々の \ が \\ にエスケープされる)
-#
-# Written by Rich Mikan(richmikan[at]richlab.org) / Date : Nov 25, 2015
-#
-# This is a public-domain software. It measns that all of the people
-# can use this with no restrictions at all. By the way, I am fed up
-# the side effects which are broght about by the major licenses.
+#!/bin/sh
 
-set -u
-PATH='/usr/bin:/bin'
-IFS=$(printf ' \t\n_'); IFS=${IFS%_}
-export IFS LANG=C LC_ALL=C PATH
+######################################################################
+#
+# PARSRX.SH
+#   A XML Parser Which Convert Into "XPath-value"
+#
+# === What is "XPath-value" Formatted Text? ===
+# 1. Format
+#    <XPath_string#1> + <0x20> + <value_at_that_path#1>
+#    <XPath_string#2> + <0x20> + <value_at_that_path#2>
+#    <XPath_string#3> + <0x20> + <value_at_that_path#3>
+#             :              :              :
+#
+# === This Command will Do Like the Following Conversion ===
+# 1. Input Text (XML or HTML which is completely compatible with XML)
+#    <foo>
+#      Great!
+#      <bar foo="FOO" bar="BAR">Wow!<br /><script></script></bar>
+#      Awsome!
+#    </foo>
+# 2. Output Text This Command Converts Into
+#    /foo/bar/@foo FOO
+#    /foo/bar/@bar BAR
+#    /foo/bar/br
+#    /foo/bar/script 
+#    /foo/bar Wow!
+#    /foo \n  Great!\n  \n  Awsome!\n
+#
+# === Usage ===
+# Usage   : parsrx.sh [options] [XML_file]
+# Options : -c  Prints the child tags which are had by the parent tag
+#         : -n  Prints the array subscript number after the tag name
+#         : -lf Replaces the newline sign "\n" with <s>. And in this mode,
+#               also replaces \ with \\
+#
+#
+# Written by 321516 (@shellshoccarjpn) / 2017-01-30 02:21:48 JST
+#
+# This is a public-domain software (CC0). It measns that all of the
+# people can use this for any purposes with no restrictions at all.
+# By the way, I am fed up the side effects which are broght about by
+# the major licenses.
+#
+######################################################################
 
+
+######################################################################
+# Initial configuration
+######################################################################
+
+# === Initialize shell environment ===================================
+set -eu
+export LC_ALL=C
+export PATH="$(command -p getconf PATH):${PATH:-}"
+
+# === Usage printing function ========================================
+print_usage_and_exit () {
+  cat <<-USAGE 1>&2
+	Usage   : parsrx.sh [options] [XML_file]
+	Options : -c  Prints the child tags which are had by the parent tag
+	        : -n  Prints the array subscript number after the tag name
+	        : -lf Replaces the newline sign "\n" with <s>. And in this mode,
+	              also replaces \ with \\
+	Version : 2017-01-30 02:21:48 JST
+	USAGE
+  exit 1
+}
+
+
+######################################################################
+# Parse Arguments
+######################################################################
+
+# === Print the usage when "--help" is put ===========================
+case "$# ${1:-}" in
+  '1 -h'|'1 --help'|'1 --version') print_usage_and_exit;;
+esac
+
+# === Get the options and the filepath ===============================
+optlf=''
+bsesc='\\'
+unoptc='#'
+unoptn='#'
+file=''
+case $# in 0) set -- -;; esac
+for arg in "$@"; do
+  if   [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
+    optlf=$(printf '%s' "${arg#-lf}_"                |
+            tr -d '\n'                               |
+            sed 's/\([\&/]\)/\\\1/g' 2>/dev/null || :)
+    optlf=${optlf%_}
+  elif [ "_${arg#-}" != "_$arg" ] && [ -n "${arg#-}" ] && [ -z "$file" ]; then
+    for opt in $(printf '%s\n' "${arg#-}" | sed 's/\(.\)/\1 /g'); do
+      case "$opt" in
+        c) unoptc=''           ;;
+        n) unoptn=''           ;;
+        *) print_usage_and_exit;;
+      esac
+    done
+  elif [ "_$arg" = '_-' ] && [ -z "$file" ]; then
+    file='-'
+  elif ([ -f "$arg" ] || [ -c "$arg" ]) && [ -z "$file" ]; then
+    file=$arg
+  else
+    print_usage_and_exit
+  fi
+done
+[ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
+[ -z "$file"  ] && file='-'
+
+
+######################################################################
+# Prepare for the Main Routine
+######################################################################
+
+# === Define some chrs. to escape some special chrs. temporarily =====
 SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
 ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
 PRO=$(printf '\020') # 属性行開始識別文字
@@ -68,72 +132,23 @@ LF=$( printf '\177') # 改行(タグ内の引用符外は除く)のエスケー�
 T=$( printf '\011')             # タブ(エスケープ用ではない)
 N=$( printf '\\\012_');N=${N%_} # sedコマンド用の改行(エスケープ用ではない)
 
-# 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる
-if awk 'BEGIN{a[1]=1;b=length(a)}' 2>/dev/null; then
-  arlen='length'
-else
-  arlen='arlen'
-fi
-
-optlf=''
-bsesc='\\'
-unoptc='#'
-unoptn='#'
-file=''
-printhelp=0
-case $# in [!0]*)
-  for arg in "$@"; do
-    if [ \( "_${arg#-lf}" != "_$arg" \) -a \( -z "$file" \) ]; then
-      optlf=$(printf '%s' "${arg#-lf}_" |
-              tr -d '\n'                |
-              sed 's/\([\&/]\)/\\\1/g'  )
-      optlf=${optlf%_}
-    elif [ \( "_${arg#-}" != "_$arg" \) -a \( -n "_${arg#-}" \) \
-           -a \( -z "$file" \)                                  ]
-    then
-      for opt in $(echo "_${arg#-}" | sed 's/^_//;s/\(.\)/\1 /g'); do
-        case "$opt" in
-          c) # -cオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-             unoptc=''
-             ;;
-          n) # -nオプションが付いた場合、一番最後のAWKのコードを一部有効にする
-             unoptn=''
-             ;;
-          *)
-             printhelp=1
-             ;;
-        esac
-      done
-    elif [ \( "_$arg" = '_-' \) -a \( -z "$file" \) ]; then
-      file='-'
-    elif [ \( \( -f "$arg" \) -o \( -c "$arg" \) \) -a \( -z "$file" \) ]; then
-      file=$arg
-    else
-      printhelp=1;
-    fi
-  done
-  ;;
+# === Check whether the AWK on this host support length() or not =====
+case "$(awk 'BEGIN{a[3]=3;a[4]=4;print length(a)}' 2>/dev/null)" in
+  2) arlen='length';;
+  *) arlen='arlen' ;; # use an equivalent original function if not supported
 esac
-if [ $printhelp -ne 0 ]; then
-  cat <<__USAGE 1>&2
-Usage   : ${0##*/} [-c] [-n] [-lf<str>] [XML_file]
-Options : -c  はタグ内に含まれる子タグの可視化
-          -n  は同親を持つその名前のタグの出現回数を、タグ名の後ろに付ける
-          -lf は値として含まれている改行を表現する文字列指定(デフォルトは"\n")
-__USAGE
-  exit 1
-fi
-[ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
-[ -z "$file"  ] && file='-'
 
 
+######################################################################
+# Main Routine (Convert and Generate)
+######################################################################
 
 # === データの流し込み ======================================================= #
 cat "$file"                                                                    |
 #                                                                              #
 # === タグ内の属性値に含まれるスペース,改行,"<",">"を全てエスケープする ====== #
 # 1)元あった改行に印をつける                                                   #
-sed 's/$/'"$LF"'/'                                                             |
+sed 's/$/'"$LF"'/' 2>/dev/null                                                 |
 # 2)一般タグ(それ以外も混ざる)の始まる前で改行                                 #
 sed 's/\(<[^'" $T"'!-.0-9;-@[-^`{-~][^'" $T"'!-,/;-@[-^`{-~]*\)/'"$N$SCT"'\1/g'|
 # 3)属性値開始括弧(それ以外も混ざる)手前で改行                                 #

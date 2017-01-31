@@ -58,8 +58,8 @@ export PATH="$(command -p getconf PATH):${PATH:-}"
 # === Usage printing function ========================================
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
-	Usage : ${0##*/} [JSONPath-value_textfile]
-	2017-01-27 14:53:31 JST
+	Usage   : ${0##*/} [JSONPath-value_textfile]
+	Version : 2017-01-27 14:53:31 JST
 	USAGE
   exit 1
 }

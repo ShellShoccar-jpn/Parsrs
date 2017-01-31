@@ -68,7 +68,7 @@ print_usage_and_exit () {
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	2017-01-30 01:46:10 JST
+	Version : 2017-01-30 01:46:10 JST
 	USAGE
   exit 1
 }

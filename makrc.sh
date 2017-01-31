@@ -63,7 +63,7 @@ print_usage_and_exit () {
 	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
 	          -t     Doesn't quote with '"' or escape fields
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
-	2017-01-30 00:28:18 JST
+	Version : 2017-01-30 00:28:18 JST
 	USAGE
   exit 1
 }

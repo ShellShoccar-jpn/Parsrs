@@ -84,7 +84,7 @@ Options : -t      Quotes a value at converting when the value is a string
         : -ls<s>  Replaces the suffix of array character "]" with <s>
         : -fn<n>  Redefines the start number of arrays with <n>
         : -li     Inserts another JSONPath line which has no value
-2017-01-27 14:53:31 JST
+Version : 2017-01-27 14:53:31 JST
 USAGE
   exit 1
 }

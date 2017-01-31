@@ -34,7 +34,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by 321516 (@shellshoccarjpn) / 2017-01-29 22:08:09 JST
+# Written by 321516 (@shellshoccarjpn) / 2017-01-30 02:32:35 JST
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -56,10 +56,10 @@ export PATH="$(command -p getconf PATH):${PATH:-}"
 # === Usage printing function ========================================
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
-	Usage   : parsrc.sh [-lf<s>] [CSV_file]
+	Usage   : ${0##*/} [-lf<s>] [CSV_file]
 	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	            also replaces \ with \\
-	2017-01-29 22:08:09 JST
+	Version : 2017-01-30 02:32:35 JST
 	USAGE
   exit 1
 }
