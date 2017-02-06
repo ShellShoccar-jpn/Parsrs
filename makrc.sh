@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ######################################################################
 #
 # MAKRC.SH
@@ -36,7 +34,7 @@
 #           -t     Doesn't quote with '"' or escape fields
 # Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
 #
-# Written by 321516 (@shellshoccarjpn) / 2017-01-30 00:28:18 JST
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-30
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -53,7 +51,7 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH):${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -64,6 +62,7 @@ print_usage_and_exit () {
 	          -t     Doesn't quote with '"' or escape fields
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
 	Version : 2017-01-30 00:28:18 JST
+	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
 }

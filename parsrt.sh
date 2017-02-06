@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ######################################################################
 #
 # PARSRT.SH
@@ -40,7 +38,7 @@
 #               is also set.
 #
 #
-# Written by 321516 (@shellshoccarjpn) / 2017-01-30 01:46:10 JST
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-30
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -57,7 +55,7 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH):${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -69,6 +67,7 @@ print_usage_and_exit () {
 	              When this option is set, this command regards "-dq" option
 	              is also set.
 	Version : 2017-01-30 01:46:10 JST
+	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
 }

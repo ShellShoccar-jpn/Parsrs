@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ######################################################################
 #
 # MAKRJ.SH
@@ -36,7 +34,7 @@
 # Usage : makrj.sh [JSON-value_textfile]
 #
 #
-# Written by 321516 (@shellshoccarjpn) / 2017-01-27 14:53:31 JST
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-27
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -53,13 +51,14 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH):${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [JSONPath-value_textfile]
 	Version : 2017-01-27 14:53:31 JST
+	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
 }

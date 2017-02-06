@@ -1,5 +1,3 @@
-#!/bin/sh
-
 ######################################################################
 #
 # PARSRX.SH
@@ -35,7 +33,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by 321516 (@shellshoccarjpn) / 2017-01-30 02:21:48 JST
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-30
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -52,7 +50,7 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH):${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -63,6 +61,7 @@ print_usage_and_exit () {
 	        : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
 	Version : 2017-01-30 02:21:48 JST
+	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
 }
