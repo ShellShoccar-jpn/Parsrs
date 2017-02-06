@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ######################################################################
 #
 # PARSRX.SH
@@ -33,7 +35,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-30
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-07
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -57,10 +59,10 @@ print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : parsrx.sh [options] [XML_file]
 	Options : -c  Prints the child tags which are had by the parent tag
-	        : -n  Prints the array subscript number after the tag name
-	        : -lf Replaces the newline sign "\n" with <s>. And in this mode,
+	          -n  Prints the array subscript number after the tag name
+	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
-	Version : 2017-01-30 02:21:48 JST
+	Version : 2017-02-07 02:01:03 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1

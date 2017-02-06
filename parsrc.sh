@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ######################################################################
 #
 # PARSRC.SH
@@ -32,7 +34,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-30
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-07
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -57,7 +59,7 @@ print_usage_and_exit () {
 	Usage   : ${0##*/} [-lf<s>] [CSV_file]
 	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	            also replaces \ with \\
-	Version : 2017-01-30 02:32:35 JST
+	Version : 2017-02-07 02:01:03 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1

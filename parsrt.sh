@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ######################################################################
 #
 # PARSRT.SH
@@ -38,7 +40,7 @@
 #               is also set.
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-01-30
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-07
 #
 # This is a public-domain software (CC0). It measns that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -66,7 +68,7 @@ print_usage_and_exit () {
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	Version : 2017-01-30 01:46:10 JST
+	Version : 2017-02-07 02:01:03 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
