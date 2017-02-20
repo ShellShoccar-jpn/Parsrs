@@ -9,7 +9,7 @@
 # * This command will probably be very useful to convert from XML to JSON!
 #   You can convert a lot of XML data into JSON data by passing it through
 #   the following one-liner.
-#     > cat hoge.xml | parsrx.sh -c -n | xpath2jsonpath.sh | makrj.sh
+#     > cat hoge.xml | parsrx.sh -c -n | convx2j.sh | makrj.sh
 # * But by the difference between XML and JSON, the lines of XPath-value
 #   which have child tags in its value will be ignored.
 #
