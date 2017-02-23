@@ -35,9 +35,9 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-07
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-24
 #
-# This is a public-domain software (CC0). It measns that all of the
+# This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
 # By the way, I am fed up the side effects which are broght about by
 # the major licenses.
@@ -62,7 +62,7 @@ print_usage_and_exit () {
 	          -n  Prints the array subscript number after the tag name
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
-	Version : 2017-02-07 02:01:03 JST
+	Version : 2017-02-24 00:55:02 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
