@@ -27,14 +27,6 @@
 #      <bar bar="BAR" foo="FOO">Wow!</bar>
 #    </foo>
 #
-# === Unsupported XML Format ===
-#    EXAMPLE:
-#       <A>aaaa<B>bbbb</B>ccccc</A>
-#       ->can not handle "aaaa, ccccc"
-#    This command can not handle cases 
-#    where child tag and parent tag values exist in parallel.
-#    But this is not a problem when using webAPI.
-#
 # === Usage ===
 # Usage : makrx.sh [XPath-value_textfile]
 #
@@ -119,6 +111,8 @@ awk -F '/' '{                                                        #
     i++;                                                             #
   }                                                                  #
   print $0}'                                                         |
+awk 'NF==2 && $0 !~ /@/{printf("%s\n%s\\\n",$0,$1)}                  #
+     NF<2{print $0}NF>2{print $0}'                                   |
 #                                                                    #
 # === 重複した行を削除 & tagを閉じるための並び替え ===================
 sort -u                                                              |
@@ -135,8 +129,8 @@ awk 'NF==2{printf("\n%s %s",$1, $2)}                                 #
      /\\$/{printf("\n%s",$0)}                                        #
      /^[^@]/ && /[^\\]$/ && NF<2{printf("\n%s",$0)}'                 |
 sed 's/\(.*\) \([^@]*\) \(@.*\)$/<\1 \3>\2/'                         |
-awk 'NF==2 && $0 !~ /@/{printf("<%s>%s</%s>\n",$1,$2,$1)}            #
-     NF<2{print $0}NF>2{print $0}'                                   |
+awk 'NF==2 && $0 !~ /@/{printf("<%s>%s\n",$1,$2)}                    #
+     NF!=2 || /@/{print $0}'                                         |
 sed 's/ $//'                                                         |
 sed '/^[^<].*[^\]$/ s/.*/<&>/'                                       |
 grep -v '^\\$'                                                       |
