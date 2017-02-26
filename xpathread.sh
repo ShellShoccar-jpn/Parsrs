@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-24
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-26
 #
 # This is a public-domain software. It means that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
@@ -114,10 +114,9 @@ case $# in [!0]*)
               printhelp=1
               break
             fi
-            if [ \( ! -f "$xpath_file"       \) -a \
-                 \( ! -c "$xpath_file"       \) -a \
-                 \( ! "_$xpath_file" != '_-' \)    ]
-            then
+            if [ ! -f "$xpath_file"       ] &&
+               [ ! -c "$xpath_file"       ] &&
+               [ ! "_$xpath_file" != '_-' ]  ; then
               printhelp=1
               break
             fi
