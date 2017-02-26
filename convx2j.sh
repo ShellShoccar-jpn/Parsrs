@@ -18,7 +18,7 @@
 # Usage: convx2j.sh [XPath-value_textfile]
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-22
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-26
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -40,8 +40,8 @@ export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 # === Usage printing function ========================================
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
-	Usage   : ${0##*/} [-n] [XPath-value_textfile]
-	Version : 2017-02-22 16:16:44 JST
+	Usage   : ${0##*/} [XPath-value_textfile]
+	Version : 2017-02-26 17:01:04 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -53,14 +53,13 @@ print_usage_and_exit () {
 ######################################################################
 
 # === Get the options and the filepath ===============================
-nopt=0
-case "$#" in [!0]*) case "$1" in '-n') nopt=1;shift;; esac;; esac
 case "$#" in
   0) file='-'
      ;;
   1) if [ -f "$1" ] || [ -c "$1" ] || [ -p "$1" ] || [ "_$1" = '_-' ]; then
        file=$1
      fi
+     case -|/*|./*|../*) :;; *) file="./$file";; esac
      ;;
   *) print_usage_and_exit
      ;;
