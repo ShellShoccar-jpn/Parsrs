@@ -34,7 +34,7 @@
 # Usage : makrx.sh [XPath-value_textfile]
 #
 #
-# Written by BRAVEMAN LONGBRIDGE (@BRAVEMANLBRID) on 2017-02-24
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-28
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -54,14 +54,18 @@ set -u
 export LC_ALL=C
 export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 
-# === Usage printing function ========================================
+# === Define the functions for printing usage and error message ======
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [XPath-value_textfile]
-	Version : 2017-02-24 00:03:24 JST
+	Version : 2017-02-28 00:29:31 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
+}
+error_exit() {
+  ${2+:} false && echo "${0##*/}: $2" 1>&2
+  exit $1
 }
 
 
@@ -75,13 +79,15 @@ case "$# ${1:-}" in
 esac
 
 # === Get the filepath ===============================================
-file='-'
 case "$#" in
   0) :
      ;;
   1) if [ -f "$1" ] || [ -c "$1" ] || [ -p "$1" ] || [ "_$1" = '_-' ]; then
        file=$1
+     else
+       error_exit 1 'Cannot open the file: '"$file"
      fi
+     case "$file" in -|/*|./*|../*) :;; *) file="./$file";; esac
      ;;
   *) print_usage_and_exit
      ;;

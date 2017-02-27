@@ -40,7 +40,7 @@
 #               is also set.
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-24
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-28
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -62,13 +62,13 @@ export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 # === Usage printing function ========================================
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
-	Usage   : parsrt.sh [options] [TSV_file]
+	Usage   : ${0##*/} [options] [TSV_file]
 	Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	Version : 2017-02-24 00:55:02 JST
+	Version : 2017-02-28 00:23:09 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -111,6 +111,7 @@ for arg in "$@"; do
 done
 [ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
 [ -z "$file"  ] && file='-'
+case "$file" in -|/*|./*|../*) :;; *) file="./$file";; esac
 
 
 ######################################################################
