@@ -19,12 +19,15 @@
 # 1. Input Text 
 #    /foo/bar/@foo FOO
 #    /foo/bar/@bar BAR
+#    /foo/bar/br
+#    /foo/bar/script 
 #    /foo/bar Wow!
-#    /foo
+#    /foo Great!Awsome!
 # 2. Output Text This Command Generates
 #    <?xml version="1.0" encoding="UTF-8"?>
 #    <foo>
-#      <bar bar="BAR" foo="FOO">Wow!</bar>
+#      Great!Awsome!
+#      <bar bar="BAR" foo="FOO">Wow!<br /><script /></bar>
 #    </foo>
 #
 # === Usage ===
