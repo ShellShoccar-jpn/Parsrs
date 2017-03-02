@@ -36,7 +36,7 @@
 # Usage : makrj.sh [JSON-value_textfile]
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-28
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-03
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -59,7 +59,7 @@ export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [JSONPath-value_textfile]
-	Version : 2017-02-28 00:18:40 JST
+	Version : 2017-03-03 04:32:56 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -112,7 +112,7 @@ ETX=$(printf '\003') # Use to mark empty value
 cat "$file"                                                                    |
 #                                                                              #
 # === Escape all of " "s and TABs in the value field to temporarily ============
-sed '/^[^ '"$HT"']\{1,\}$/s/$/ /' 2>/dev/null                                  |
+sed '/^[^ '"$HT"']\{1,\}$/s/$/ '$ETX'/' 2>/dev/null                            |
 sed 's/ /'$FS'/'                                                               |
 tr  " $HT$FS" "$ACK$NAK "                                                      |
 #                                                                              #
@@ -121,10 +121,9 @@ awk '$2~/^".*"$/              {print $0             ;next;} #<-string          #
      $2~/^-?([1-9][0-9]*|0)(\.[0-9]+)?([Ee][+-][0-9]+)?$/ { #<-number          #
                                print $0             ;next;}                    #
      $2~/^(null|true|false)$/ {print $0             ;next;} #<-boolians        #
-     $2!=""                   {s=$2; gsub(/"/,"\\\"",s);    #<-non-quoted-str  #
-                               print $1,"\"" s "\"" ;next;}                    #
-     $1~/[^].]$/              {print $1,"\"\""      ;next;} #<-empty-string    #
-     {                         print $1,"'$ETX'"    ;next;} #<-empty-field   ' |
+     $2=="'$ETX'"             {print $0             ;next;} #<-empty-field     #
+     {                         s=$2; gsub(/"/,"\\\"",s);    #<-non-quoted-str  #
+                               print $1,"\"" s "\"" ;next;}                  ' |
 #                                                                              #
 # === Add the prefix of type (Hash or List array), and split into KEYs =========
 awk '{s=$1;                                                                    #
