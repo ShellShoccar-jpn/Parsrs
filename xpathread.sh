@@ -30,11 +30,12 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-04
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
 #
-# This is a public-domain software. It means that all of the people
-# can use this with no restrictions at all. By the way, I am fed up
-# the side effects which are brought about by the major licenses.
+# This is a public-domain software (CC0). It means that all of the
+# people can use this for any purposes with no restrictions at all.
+# By the way, We are fed up with the side effects which are brought
+# about by the major licenses.
 
 
 set -u
