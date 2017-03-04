@@ -30,11 +30,11 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-02-26
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-04
 #
 # This is a public-domain software. It means that all of the people
 # can use this with no restrictions at all. By the way, I am fed up
-# the side effects which are broght about by the major licenses.
+# the side effects which are brought about by the major licenses.
 
 
 set -u
