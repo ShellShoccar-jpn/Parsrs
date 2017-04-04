@@ -34,7 +34,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -59,7 +59,7 @@ print_usage_and_exit () {
 	Usage   : ${0##*/} [-lf<s>] [CSV_file]
 	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	            also replaces \ with \\
-	Version : 2017-03-05 04:49:02 JST
+	Version : 2017-04-04 14:03:33 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -84,9 +84,10 @@ case $# in 0) set -- -;; esac
 for arg in "$@"; do
   i=$((i+1))
   if [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
-    optlf=$(printf '%s' "${arg#-lf}_"                |
-            tr -d '\n'                               |
-            sed 's/\([\&/]\)/\\\1/g' 2>/dev/null || :)
+    optlf=$(printf '%s' "${arg#-lf}_" |
+            tr -d '\n'                |
+            grep ^                    |
+            sed 's/\([\&/]\)/\\\1/g'  )
     optlf=${optlf%_}
   elif [ $i -eq $# ] && [ "_$arg" = '_-' ] && [ -z "$file" ]; then
     file='-'
@@ -120,10 +121,10 @@ CR=$( printf '\015')               # Carridge Return
 ######################################################################
 
 # === Open the CSV data source ===================================== #
-cat "$file"                                                          |
+grep ^ "$file"                                                       |
 #                                                                    #
 # === Remove <CR> at the end of every line ========================= #
-sed "s/$CR\$//" 2>/dev/null                                          |
+sed "s/$CR\$//"                                                      |
 #                                                                    #
 # === Escape DQs as value ========================================== #
 #     (However '""'s meaning null are also escape for the moment)    #

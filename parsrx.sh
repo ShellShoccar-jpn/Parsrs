@@ -35,7 +35,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -62,7 +62,7 @@ print_usage_and_exit () {
 	          -n  Prints the array subscript number after the tag name
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
-	Version : 2017-03-05 04:49:02 JST
+	Version : 2017-04-04 14:06:45 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -87,9 +87,10 @@ file=''
 case $# in 0) set -- -;; esac
 for arg in "$@"; do
   if   [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
-    optlf=$(printf '%s' "${arg#-lf}_"                |
-            tr -d '\n'                               |
-            sed 's/\([\&/]\)/\\\1/g' 2>/dev/null || :)
+    optlf=$(printf '%s' "${arg#-lf}_" |
+            tr -d '\n'                |
+            grep ^                    |
+            sed 's/\([\&/]\)/\\\1/g'  )
     optlf=${optlf%_}
   elif [ "_${arg#-}" != "_$arg" ] && [ -n "${arg#-}" ] && [ -z "$file" ]; then
     for opt in $(printf '%s\n' "${arg#-}" | sed 's/\(.\)/\1 /g'); do
@@ -146,11 +147,11 @@ esac
 ######################################################################
 
 # === データの流し込み ======================================================= #
-cat "$file"                                                                    |
+grep ^ "$file"                                                                 |
 #                                                                              #
 # === タグ内の属性値に含まれるスペース,改行,"<",">"を全てエスケープする ====== #
 # 1)元あった改行に印をつける                                                   #
-sed 's/$/'"$LF"'/' 2>/dev/null                                                 |
+sed 's/$/'"$LF"'/'                                                             |
 # 2)一般タグ(それ以外も混ざる)の始まる前で改行                                 #
 sed 's/\(<[^'" $T"'!-.0-9;-@[-^`{-~][^'" $T"'!-,/;-@[-^`{-~]*\)/'"$N$SCT"'\1/g'|
 # 3)属性値開始括弧(それ以外も混ざる)手前で改行                                 #

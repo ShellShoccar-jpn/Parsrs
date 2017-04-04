@@ -36,7 +36,7 @@
 #           -t     Doesn't quote with '"' or escape fields
 # Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -63,7 +63,7 @@ print_usage_and_exit () {
 	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
 	          -t     Doesn't quote with '"' or escape fields
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
-	Version : 2017-03-05 04:49:02 JST
+	Version : 2017-04-04 14:02:57 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -89,9 +89,10 @@ i=0
 for arg in "$@"; do
   i=$((i+1))
   if [ "_${arg#-fs}" != "_$arg" ] && [ -z "$file" ]; then
-    optfs=$(printf '%s' "${arg#-fs}_"                |
-            tr -d '\n'                               |
-            sed 's/\([\&/]\)/\\\1/g' 2>/dev/null || :)
+    optfs=$(printf '%s' "${arg#-fs}_" |
+            tr -d '\n'                |
+            grep ^                    |
+            sed 's/\([\&/]\)/\\\1/g'  )
     optfs=${optfs%_}
   elif [ "_${arg}" = '_-lf' ] && [ -z "$file" ]; then
     optlf=1
@@ -124,10 +125,10 @@ LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
 ######################################################################
 
 # === Open the "Line#-Field#-value" data source ========== #
-cat "$file"                                                |
+grep ^ "$file"                                             |
 #                                                          #
 # === Transfer line and field numbers separator to "_" === #
-sed 's/ \{1,\}/_/' 2>/dev/null                             |
+sed 's/ \{1,\}/_/'                                         |
 #                                                          #
 # === Escape "\n" and "\" as value ======================= #
 sed 's/\\\\/'"$SO"'/g'                                     |

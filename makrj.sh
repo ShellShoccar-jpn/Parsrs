@@ -36,7 +36,7 @@
 # Usage : makrj.sh [JSON-value_textfile]
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -59,7 +59,7 @@ export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [JSONPath-value_textfile]
-	Version : 2017-03-05 04:49:02 JST
+	Version : 2017-04-04 14:13:39 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -109,10 +109,10 @@ ETX=$(printf '\003') # Use to mark empty value
 ######################################################################
 
 # === Open the "JSONPath-value" data source ================================== #
-cat "$file"                                                                    |
+grep ^ "$file"                                                                 |
 #                                                                              #
 # === Escape all of " "s and TABs in the value field to temporarily ============
-sed '/^[^ '"$HT"']\{1,\}$/s/$/ '$ETX'/' 2>/dev/null                            |
+sed '/^[^ '"$HT"']\{1,\}$/s/$/ '$ETX'/'                                        |
 sed 's/ /'$FS'/'                                                               |
 tr  " $HT$FS" "$ACK$NAK "                                                      |
 #                                                                              #

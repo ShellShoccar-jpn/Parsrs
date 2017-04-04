@@ -40,7 +40,7 @@
 #               is also set.
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -68,7 +68,7 @@ print_usage_and_exit () {
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	Version : 2017-03-05 04:49:02 JST
+	Version : 2017-04-04 14:05:51 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -97,9 +97,10 @@ for arg in "$@"; do
     optdq=1
   elif [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
     optdq=1
-    optlf=$(printf '%s' "${arg#-lf}_"                |
-            tr -d '\n'                               |
-            sed 's/\([\&/]\)/\\\1/g' 2>/dev/null || :)
+    optlf=$(printf '%s' "${arg#-lf}_" |
+            tr -d '\n'                |
+            grep ^                    |
+            sed 's/\([\&/]\)/\\\1/g'  )
     optlf=${optlf%_}
   elif [ $i -eq $# ] && [ "_$arg" = '_-' ] && [ -z "$file" ]; then
     file='-'
@@ -134,10 +135,10 @@ LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
 ######################################################################
 case $optdq in 0)
   # === Open the TSV data source =================================== #
-  cat "$file"                                                        |
+  grep ^ "$file"                                                     |
   #                                                                  #
   # === Remove <CR> at the end of every line ======================= #
-  sed "s/$CR\$//" 2>/dev/null                                        |
+  sed "s/$CR\$//"                                                    |
   #                                                                  #
   # === Mark record separators of CSV with RS after it in advance == #
   sed "s/\$/$LF$RS/"                                                 |
@@ -170,10 +171,10 @@ case $optdq in 0)
 ######################################################################
 
 # === Open the TSV data source ====================================== #
-cat "$file"                                                           |
+grep ^ "$file"                                                        |
 #                                                                     #
 # === Remove <CR> at the end of every line ========================== #
-sed "s/$CR\$//" 2>/dev/null                                           |
+sed "s/$CR\$//"                                                       |
 #                                                                     #
 # === Escape DQs as value =========================================== #
 #     (However '""'s meaning null are also escape for the moment)     #
