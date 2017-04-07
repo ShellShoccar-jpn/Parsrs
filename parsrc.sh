@@ -121,7 +121,7 @@ CR=$( printf '\015')               # Carridge Return
 ######################################################################
 
 # === Open the CSV data source ===================================== #
-grep ^ "$file"                                                       |
+case "$file" in -) grep '';; *) grep '' "$file";; esac               |
 #                                                                    #
 # === Remove <CR> at the end of every line ========================= #
 sed "s/$CR\$//"                                                      |

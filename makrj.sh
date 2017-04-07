@@ -109,7 +109,7 @@ ETX=$(printf '\003') # Use to mark empty value
 ######################################################################
 
 # === Open the "JSONPath-value" data source ================================== #
-grep ^ "$file"                                                                 |
+case "$file" in -) grep '';; *) grep '' "$file";; esac                         |
 #                                                                              #
 # === Escape all of " "s and TABs in the value field to temporarily ============
 sed '/^[^ '"$HT"']\{1,\}$/s/$/ '$ETX'/'                                        |

@@ -125,7 +125,7 @@ LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
 ######################################################################
 
 # === Open the "Line#-Field#-value" data source ========== #
-grep ^ "$file"                                             |
+case "$file" in -) grep '';; *) grep '' "$file";; esac     |
 #                                                          #
 # === Transfer line and field numbers separator to "_" === #
 sed 's/ \{1,\}/_/'                                         |
