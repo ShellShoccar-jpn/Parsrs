@@ -35,7 +35,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -62,7 +62,7 @@ print_usage_and_exit () {
 	          -n  Prints the array subscript number after the tag name
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
-	Version : 2017-04-04 14:06:45 JST
+	Version : 2017-04-07 15:31:21 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -89,7 +89,7 @@ for arg in "$@"; do
   if   [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
     optlf=$(printf '%s' "${arg#-lf}_" |
             tr -d '\n'                |
-            grep ^                    |
+            grep ''                   |
             sed 's/\([\&/]\)/\\\1/g'  )
     optlf=${optlf%_}
   elif [ "_${arg#-}" != "_$arg" ] && [ -n "${arg#-}" ] && [ -z "$file" ]; then

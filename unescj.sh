@@ -19,7 +19,7 @@
 # Usage: unescj.sh [-n] [JSONPath-value_textfile]
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -42,7 +42,7 @@ export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [-n] [JSONPath-value_textfile]
-	Version : 2017-04-04 14:16:55 JST
+	Version : 2017-04-07 15:31:21 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -88,7 +88,7 @@ esac
 ######################################################################
 
 # === Open the data source =================================================== #
-case "$file" in -) grep '';; *) grep '' "$file";; esac                         |
+case  "$file" in -) grep ^;; *) grep '' "$file";; esac                         |
 #                                                                              #
 # === Escape "\\" to ACK temporarily ========================================= #
 sed 's/\\\\/'"$ACK"'/g'                                                        |

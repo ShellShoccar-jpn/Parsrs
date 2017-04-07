@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-03-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.

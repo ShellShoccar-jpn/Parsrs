@@ -36,7 +36,7 @@
 #           -t     Doesn't quote with '"' or escape fields
 # Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-04
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -63,7 +63,7 @@ print_usage_and_exit () {
 	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
 	          -t     Doesn't quote with '"' or escape fields
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
-	Version : 2017-04-04 14:02:57 JST
+	Version : 2017-04-07 15:31:21 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -91,7 +91,7 @@ for arg in "$@"; do
   if [ "_${arg#-fs}" != "_$arg" ] && [ -z "$file" ]; then
     optfs=$(printf '%s' "${arg#-fs}_" |
             tr -d '\n'                |
-            grep ^                    |
+            grep ''                   |
             sed 's/\([\&/]\)/\\\1/g'  )
     optfs=${optfs%_}
   elif [ "_${arg}" = '_-lf' ] && [ -z "$file" ]; then
