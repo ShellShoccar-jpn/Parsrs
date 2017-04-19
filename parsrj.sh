@@ -47,7 +47,7 @@
 #           -li     Inserts another JSONPath line which has no value
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-17
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -84,7 +84,7 @@ Options : -t      Quotes a value at converting when the value is a string
           -ls<s>  Replaces the suffix of array character "]" with <s>
           -fn<n>  Redefines the start number of arrays with <n>
           -li     Inserts another JSONPath line which has no value
-Version : 2017-04-07 15:31:21 JST
+Version : 2017-04-17 16:22:45 JST
           (POSIX Bourne Shell/POSIX commands)
 USAGE
   exit 1
@@ -402,14 +402,14 @@ BEGIN {                                                                  #
 END {                                                                    #
   # FINAL ROUTINE                                                        #
   if (_assert_exit) {                                                    #
-    print "Invalid JSON format\n" > "/dev/stderr";                       #
+    print "Invalid JSON format\n" | "cat 1>&2";                          #
     line1="keyname-stack:";                                              #
     line2="datacat-stack:";                                              #
     for (i=1;i<=stack_depth;i++) {                                       #
       line1=line1 sprintf("{%s}",keyname_stack[i]);                      #
       line2=line2 sprintf("{%s}",datacat_stack[i]);                      #
     }                                                                    #
-    print line1, "\n", line2, "\n" > "/dev/stderr";                      #
+    print line1, "\n", line2, "\n" | "cat 1>&2";                         #
   }                                                                      #
   exit _assert_exit;                                                     #
 }                                                                        #
