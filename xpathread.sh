@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-05-02
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -42,6 +42,7 @@ set -u
 PATH='/usr/bin:/bin'
 IFS=$(printf ' \t\n_'); IFS=${IFS%_}
 export IFS LANG=C LC_ALL=C PATH
+export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
 # ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
 if awk 'BEGIN{a[1]=1;b=length(a)}' 2>/dev/null; then
@@ -60,7 +61,7 @@ optmode=''
 i=0
 printhelp=0
 case $# in [!0]*)
-  for arg in "$@"; do
+  for arg in ${1+"$@"}; do
     i=$((i+1))
     if [ -z "$optmode" ]; then
       case "$arg" in

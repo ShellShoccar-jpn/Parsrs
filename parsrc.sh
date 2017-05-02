@@ -34,7 +34,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 202017-05-02
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -51,7 +51,8 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH+:}${PATH-}"
+export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -59,7 +60,7 @@ print_usage_and_exit () {
 	Usage   : ${0##*/} [-lf<s>] [CSV_file]
 	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	            also replaces \ with \\
-	Version : 2017-04-07 15:31:21 JST
+	Version : 202017-05-02 21:11:01 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -76,12 +77,14 @@ case "$# ${1:-}" in
 esac
 
 # === Get the options and the filepath ===============================
+# --- initialize option parameters -----------------------------------
 optlf=''
 bsesc='\\'
 file=''
+#
+# --- get them -------------------------------------------------------
 i=0
-case $# in 0) set -- -;; esac
-for arg in "$@"; do
+for arg in ${1+"$@"}; do
   i=$((i+1))
   if [ "_${arg#-lf}" != "_$arg" ] && [ -z "$file" ]; then
     optlf=$(printf '%s' "${arg#-lf}_" |
@@ -98,8 +101,22 @@ for arg in "$@"; do
   fi
 done
 [ -z "$optlf" ] && { optlf='\\n'; bsesc='\\\\'; }
-[ -z "$file"  ] && file='-'
-case "$file" in -|/*|./*|../*) :;; *) file="./$file";; esac
+
+# === Validate the arguments =========================================
+if   [ "_$file" = '_'                ] ||
+     [ "_$file" = '_-'               ] ||
+     [ "_$file" = '_/dev/stdin'      ] ||
+     [ "_$file" = '_/dev/fd/0'       ] ||
+     [ "_$file" = '_/proc/self/fd/0' ]  ; then
+  file=''
+elif [ -f "$file"                    ] ||
+     [ -c "$file"                    ] ||
+     [ -p "$file"                    ]  ; then
+  [ -r "$file" ] || error_exit 1 'Cannot open the file: '"$file"
+else
+  print_usage_and_exit
+fi
+case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 
 
 ######################################################################
@@ -121,7 +138,7 @@ CR=$( printf '\015')               # Carridge Return
 ######################################################################
 
 # === Open the CSV data source ===================================== #
-case "$file" in -) grep '';; *) grep '' "$file";; esac               |
+grep '' ${file:+"$file"}                                             |
 #                                                                    #
 # === Remove <CR> at the end of every line ========================= #
 sed "s/$CR\$//"                                                      |

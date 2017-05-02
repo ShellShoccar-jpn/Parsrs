@@ -9,16 +9,16 @@
 # * This command will probably be very useful to convert from XML to JSON!
 #   You can convert a lot of XML data into JSON data by passing it through
 #   the following one-liner.
-#     > cat hoge.xml | parsrx.sh -c -n | convx2j.sh | makrj.sh
+#     > cat hoge.xml | parsrx.sh -c -n | ${PATH+:}${PATH-} | makrj.sh
 # * But by the difference between XML and JSON, the lines of XPath-value
 #   which have child tags in its value will be ignored.
 #
 #
 # === Usage ===
-# Usage: convx2j.sh [XPath-value_textfile]
+# Usage: ${PATH+:}${PATH-} [XPath-value_textfile]
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 202017-05-02
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -35,13 +35,14 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH+:}${PATH-}"
+export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
 # === Define the functions for printing usage and error message ======
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [XPath-value_textfile]
-	Version : 2017-04-07 15:31:21 JST
+	Version : 202017-05-02 21:11:01 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -57,30 +58,39 @@ error_exit() {
 ######################################################################
 
 # === Get the options and the filepath ===============================
-case "$#" in
-  0) file='-'
-     ;;
-  1) if [ -f "$1" ] || [ -c "$1" ] || [ -p "$1" ] || [ "_$1" = '_-' ]; then
-       file=$1
-     else
-       error_exit 1 'Cannot open the file: '"$file"
-     fi
-     case "$file" in -|/*|./*|../*) :;; *) file="./$file";; esac
-     ;;
-  *) print_usage_and_exit
-     ;;
+# --- initialize option parameters -----------------------------------
+file=''
+#
+# --- get them -------------------------------------------------------
+case $# in
+  0) :                   ;;
+  1) file=$1             ;;
+  *) print_usage_and_exit;;
 esac
+
+# === Validate the arguments =========================================
+if   [ "_$file" = '_'                ] ||
+     [ "_$file" = '_-'               ] ||
+     [ "_$file" = '_/dev/stdin'      ] ||
+     [ "_$file" = '_/dev/fd/0'       ] ||
+     [ "_$file" = '_/proc/self/fd/0' ]  ; then
+  file=''
+elif [ -f "$file"                    ] ||
+     [ -c "$file"                    ] ||
+     [ -p "$file"                    ]  ; then
+  [ -r "$file" ] || error_exit 1 'Cannot open the file: '"$file"
+else
+  print_usage_and_exit
+fi
+case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 
 
 ######################################################################
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# === Open the data source ================================================== #
-cat "$file"                                                                   |
-#                                                                             #
-# === Delete XPath lines which have child tags ============================== #
-grep -v '/>'                                                                  |
+# ===  Open the data source and delete XPath lines which have child tags ==== #
+grep -v '/>' ${file:+"$file"}                                                 |
 #                                                                             #
 # === Delete the top "/" ==================================================== #
 sed 's/^\///'                                                                 |

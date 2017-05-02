@@ -36,7 +36,7 @@
 #           -t     Doesn't quote with '"' or escape fields
 # Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-04-07
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 202017-05-02
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -53,7 +53,8 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
-export PATH="$(command -p getconf PATH)${PATH:+:}${PATH:-}"
+export PATH="$(command -p getconf PATH)${PATH+:}${PATH-}"
+export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -63,7 +64,7 @@ print_usage_and_exit () {
 	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
 	          -t     Doesn't quote with '"' or escape fields
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
-	Version : 2017-04-07 15:31:21 JST
+	Version : 202017-05-02 21:11:01 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -80,13 +81,15 @@ case "$# ${1:-}" in
 esac
 
 # === Get the options and the filepath ===============================
+# --- initialize option parameters -----------------------------------
 optfs=','
 optlf=0
 optt=0
 file=''
-case $# in 0) set -- -;; esac
+#
+# --- get them -------------------------------------------------------
 i=0
-for arg in "$@"; do
+for arg in ${1+"$@"}; do
   i=$((i+1))
   if [ "_${arg#-fs}" != "_$arg" ] && [ -z "$file" ]; then
     optfs=$(printf '%s' "${arg#-fs}_" |
@@ -106,8 +109,22 @@ for arg in "$@"; do
     print_usage_and_exit
   fi
 done
-[ -z "$file"  ] && file='-'
-case "$file" in -|/*|./*|../*) :;; *) file="./$file";; esac
+
+# === Validate the arguments =========================================
+if   [ "_$file" = '_'                ] ||
+     [ "_$file" = '_-'               ] ||
+     [ "_$file" = '_/dev/stdin'      ] ||
+     [ "_$file" = '_/dev/fd/0'       ] ||
+     [ "_$file" = '_/proc/self/fd/0' ]  ; then
+  file=''
+elif [ -f "$file"                    ] ||
+     [ -c "$file"                    ] ||
+     [ -p "$file"                    ]  ; then
+  [ -r "$file" ] || error_exit 1 'Cannot open the file: '"$file"
+else
+  print_usage_and_exit
+fi
+case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 
 
 ######################################################################
@@ -125,7 +142,7 @@ LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
 ######################################################################
 
 # === Open the "Line#-Field#-value" data source ========== #
-case "$file" in -) grep '';; *) grep '' "$file";; esac     |
+grep '' ${file:+"$file"}                                   |
 #                                                          #
 # === Transfer line and field numbers separator to "_" === #
 sed 's/ \{1,\}/_/'                                         |
