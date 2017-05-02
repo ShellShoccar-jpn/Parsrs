@@ -40,7 +40,7 @@
 #               is also set.
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 202017-05-02
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-05-03
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -69,7 +69,7 @@ print_usage_and_exit () {
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	Version : 202017-05-02 21:11:01 JST
+	Version : 2017-05-03 01:36:50 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1

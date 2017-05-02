@@ -34,7 +34,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 202017-05-02
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-05-03
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -60,7 +60,7 @@ print_usage_and_exit () {
 	Usage   : ${0##*/} [-lf<s>] [CSV_file]
 	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	            also replaces \ with \\
-	Version : 202017-05-02 21:11:01 JST
+	Version : 2017-05-03 01:36:50 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
