@@ -35,7 +35,7 @@
 #               also replaces \ with \\
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-05-03
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-07-18
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -52,6 +52,7 @@
 # === Initialize shell environment ===================================
 set -eu
 export LC_ALL=C
+type getconf >/dev/null 2>&1 &&
 export PATH="$(command -p getconf PATH)${PATH+:}${PATH-}"
 export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
@@ -63,7 +64,7 @@ print_usage_and_exit () {
 	          -n  Prints the array subscript number after the tag name
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
-	Version : 2017-05-03 01:36:50 JST
+	Version : 2017-07-18 00:23:25 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
