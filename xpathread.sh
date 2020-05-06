@@ -30,7 +30,7 @@
 #         : -n is for setting the substitution of null (default:"@")
 #         : -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2017-07-18
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -39,9 +39,10 @@
 
 
 set -u
-PATH='/usr/bin:/bin'
-IFS=$(printf ' \t\n_'); IFS=${IFS%_}
-export IFS LANG=C LC_ALL=C PATH
+umask 0022
+export LC_ALL=C
+export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
+case $PATH in :*) PATH=${PATH#?};; esac
 export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
 # ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
