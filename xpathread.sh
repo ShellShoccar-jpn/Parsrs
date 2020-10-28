@@ -42,7 +42,7 @@ set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
-case $PATH in :*) PATH=${PATH#?};; esac
+case $PATH in (:*) PATH=${PATH#?};; esac
 export UNIX_STD=2003  # to make HP-UX conform to POSIX
 
 # ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
@@ -61,12 +61,12 @@ xpath_file=''
 optmode=''
 i=0
 printhelp=0
-case $# in [!0]*)
+case $# in ([!0]*)
   for arg in ${1+"$@"}; do
     i=$((i+1))
-    if [ -z "$optmode" ]; then
+    case "${optmode}" in ('')
       case "$arg" in
-        -[sdnip]*)
+        (-[sdnip]*)
           ret=$(echo "_${arg#-}" |
                 awk '{
                   opts = "_";
@@ -91,32 +91,34 @@ case $# in [!0]*)
                 }')
           ret1=${ret%% *}
           ret2=${ret#* }
-          if [ "${ret1#*s}" != "$ret1" ]; then
+          case "${ret1}" in (*s*)
             opts=$ret2
-          fi
-          if [ "${ret1#*n}" != "$ret1" ]; then
-            if [ -n "$ret2" ]; then
+          esac
+          case "${ret1}" in (*n*)
+            case "${#ret2}" in ([!0]*)
               optn=$ret2
-            else
+            ;;(*)
               optmode='n'
-            fi
-          fi
-          if [ "${ret1#*p}" != "$ret1" ]; then
+            ;;esac
+          esac
+          case "${ret1}" in (*p*)
             optp='#'
-          fi
+          esac
           ;;
-        *)
-          if [ -z "$xpath" ]; then
+        (*)
+          case "${#xpath},${#xpath_file}" in (0,*)
             if [ $i -lt $(($#-1)) ]; then
               printhelp=1
               break
             fi
             xpath=$arg
-          elif [ -z "$xpath_file" ]; then
-            if [ $i -ne $# ]; then
+          ;;(*,0)
+            case $i in ($#)
+              :
+            ;;(*)
               printhelp=1
               break
-            fi
+            ;;esac
             if [ ! -f "$xpath_file"       ] &&
                [ ! -c "$xpath_file"       ] &&
                [ ! "_$xpath_file" != '_-' ]  ; then
@@ -124,24 +126,24 @@ case $# in [!0]*)
               break
             fi
             xpath_file=$arg
-          else
+          ;;(*)
             printhelp=1
             break
-          fi
+          ;;esac
           ;;
       esac
-    elif [ "$optmode" = 'n' ]; then
+    ;;(n)
       optn=$arg
       optmode=''
-    else
+    ;;(*)
       printhelp=1
       break
-    fi
+    ;;esac
   done
   ;;
 esac
-[ -n "$xpath"  ] || printhelp=1
-if [ $printhelp -ne 0 ]; then
+case "${#xpath}" in (0) printhelp=1;; esac
+case $printhelp in ([!0]*)
   cat <<-__USAGE 1>&2
 	Usage   : ${0##*/} [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
 	Options : -s is for setting the substitution of blank (default:"_")
@@ -149,8 +151,8 @@ if [ $printhelp -ne 0 ]; then
 	        : -p permits to add the properties of the tag to the table
 __USAGE
   exit 1
-fi
-[ -z "$xpath_file" ] && xpath_file='-'
+esac
+caae "${#xpath_file}" in (0) xpath_file='-';; esac
 
 # ===== テンポラリーファイルを確保する ===============================
 which mktemp >/dev/null 2>&1 || {
@@ -165,12 +167,12 @@ which mktemp >/dev/null 2>&1 || {
   }
 }
 tempfile=$(mktemp -t "${0##*/}.XXXXXXXX")
-if [ $? -eq 0 ]; then
+case $? in (0)
   trap "rm -f $tempfile; exit" EXIT HUP INT QUIT ALRM SEGV TERM
-else
+;;(*)
   echo "${0##*/}: Can't create a temporary file" 1>&2
   exit 1
-fi
+;;esac
 
 # ===== 下記の前処理を施したテキストをテンポラリーファイルに書き出す =
 # ・指定されたパス自身とその子でない(=孫以降)の行は削除
