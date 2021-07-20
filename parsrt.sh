@@ -40,7 +40,7 @@
 #               is also set.
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2021-07-21
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -71,7 +71,7 @@ print_usage_and_exit () {
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	Version : 2020-05-06 22:42:19 JST
+	Version : 2021-07-21 01:15:08 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -160,7 +160,7 @@ case $optdq in 0)
   sed "s/$CR\$//"                                                    |
   #                                                                  #
   # === Mark record separators of CSV with RS after it in advance == #
-  sed "s/\$/$LF$RS/"                                                 |
+  sed "s/\$/$LFs$RS/"                                                |
   #                                                                  #
   # === Split all fields into indivisual lines ===================== #
   tr "$HT" '\n'                                                      |
@@ -220,20 +220,20 @@ awk '                                                                 #
 '                                                                     |
 #                                                                     #
 # === Mark record separators of CSV with RS after it in advance ===== #
-sed "s/\$/$LF$RS/"                                                    |
+sed "s/\$/$LFs$RS/"                                                   |
 #                                                                     #
 # === Split fields which is quoted with DQ into individual lines ==== #
 #     (Also remove spaces behind and after the DQ field)              #
 # (1/3)Split the DQ fields from the top to NF-1                       #
-sed 's/ *\("[^"]*"\) *'"$HT"'/\1'"$LF$US$LF"'/g'                      |
+sed 's/ *\("[^"]*"\) *'"$HT"'/\1'"$LFs$US$LFs"'/g'                    |
 # (2/3)Split the DQ fields at the end (NF)                            #
-sed 's/'"$HT"' *\("[^"]*"\) *$/'"$LF$US$LF"'\1/g'                     |
+sed 's/'"$HT"' *\("[^"]*"\) *$/'"$LFs$US$LFs"'\1/g'                   |
 # (3/3)Remove spaces behind and after the single DQ field in line     #
 sed 's/^ *\("[^"]*"\) *$/\1/g'                                        |
 #                                                                     #
 # === Split non-quoted fields into individual lines ================= #
 #     (It is simple, only convert "," to <0x0A> on non-quoted lines)  #
-sed '/['$RS'"]/!s/'"$HT"'/'"$LF$US$LF"'/g'                            |
+sed '/['$RS'"]/!s/'"$HT"'/'"$LFs$US$LFs"'/g'                          |
 #                                                                     #
 # === Unquote DQ-quoted field ======================================= #
 #     (It is also simple, only remove DQs. Because the DQs as value   #
