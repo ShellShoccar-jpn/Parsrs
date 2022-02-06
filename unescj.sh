@@ -16,10 +16,14 @@
 #   <0x0A>s which has been converted from "\ux000a"s.
 #
 # === Usage ===
-# Usage: unescj.sh [-n] [JSONPath-value_textfile]
+# Usage   : unescj.sh [-nuU] [JSONPath-value_textfile]
+# Options : -n ... Regard the data as JSONPath-value
+# Environs: LINE_BUFFERED
+#             =yes ........ Line-buffered mode if possible
+#             =forcible ... Line-buffered mode or exit if impossible
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-06-27
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -34,18 +38,27 @@
 ######################################################################
 
 # === Initialize shell environment ===================================
-set -eu
+set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
 # === Define the functions for printing usage and error message ======
-print_usage_and_exit () {
+print_usage_and_exit() {
   cat <<-USAGE 1>&2
-	Usage   : ${0##*/} [-n] [JSONPath-value_textfile]
-	Version : 2020-06-27 02:14:39 JST
+	Usage   : ${0##*/} [-nuU] [JSONPath-value_textfile]
+	Options : -n ... Regard the data as JSONPath-value
+	          -u ... Line-buffered mode if possible
+	          -U ... Line-buffered mode or exit if impossible
+	Environs: LINE_BUFFERED
+	            =yes ........ Line-buffered mode if possible
+	            =forcible ... Line-buffered mode or exit if impossible
+	Version : 2022-02-04 19:28:27 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -61,20 +74,30 @@ error_exit() {
 ######################################################################
 
 # === Define some chrs. to escape some special chrs. temporarily =====
-BS=$( printf '\010' )              # Back Space
-TAB=$(printf '\011' )              # Tab
-LFs=$(printf '\\\n_');LFs=${LFs%_} # Line Feed (for sed command)
-FF=$( printf '\014' )              # New Pafe (Form Feed)
-CR=$( printf '\015' )              # Carridge Return
-ACK=$(printf '\006' )              # Escape chr. for "\\"
+s=$(printf '\010\011\\\n\014\015\006')
+BS=${s%??????}; s=${s#?}   # Back Space
+TAB=${s%?????}; s=${s#?}   # Tab
+LFs=${s%???}  ; s=${s#??}  # Line Feed (for sed command)
+FF=${s%??}    ; s=${s#?}   # New Pafe (Form Feed)
+CR=${s%?}     ;            # Carridge Return
+ACK=${s#?}                 # Escape chr. for "\\"
 
 # === Get the options and the filepath ===============================
 # --- initialize option parameters -----------------------------------
-optn=0
+optn=0 # 0:simple_JSON_encoded_string, 1:JSONPath-value
 file=''
 #
 # --- get them -------------------------------------------------------
-case "$#" in [!0]*) case "$1" in '-n') optn=1;shift;; esac;; esac
+for arg in ${1+"$@"}; do
+  case $arg in -) break;; -*) :;; *) break;; esac
+  for arg in $(printf '%s\n' "${arg#-}" | sed 's/./& /g'); do
+    case $arg in
+      n)    optn=1              ;;
+      *)    print_usage_and_exit;;
+    esac
+  done
+  shift
+done
 case $# in
   0) :                   ;;
   1) file=$1             ;;
@@ -96,6 +119,41 @@ else
   print_usage_and_exit
 fi
 case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
+
+# === Switch to the line-buffered mode if required ===================
+awkfl=''
+case "${LINE_BUFFERED:-}" in
+             [Ff][Oo][Rr][Cc][EeIi]*|2) lbm=2;;
+  [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1) lbm=1;;
+                                     *) lbm=0;;
+esac
+case $lbm in [!0]*)
+  s=$(awk -W interactive 'BEGIN{}' 2>&1)
+  case "$?$s" in
+  '0') alias awk='awk -W interactive';;
+    *) awkfl='system("");'           ;;
+  esac
+  s="$(type stdbuf >/dev/null 2>&1 && echo "s")"
+  s="$(type ptw    >/dev/null 2>&1 && echo "p")$s"
+  if sed -u p </dev/null >/dev/null 2>&1; then
+    alias sed='sed -u'
+  else
+    case "$s $lbm" in
+      *s*)   alias sed='stdbuf -o L sed'                       ;;
+      *p*)   alias sed='ptw sed'                               ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  if echo 1 | grep -q --line-buffered ^ 2>/dev/null; then
+    alias grep='grep --line-buffered'
+  else
+    case "$s $lbm" in
+      *s*)   alias grep='stdbuf -o L grep'                     ;;
+      *p*)   alias grep='ptw grep'                             ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+;; esac
 
 
 ######################################################################
@@ -135,7 +193,7 @@ BEGIN {                                                                        #
   #}                                #  :  # was a litter faster than (b).      #
   j=0;                                                                         #
   while (getline l) {                                                          #
-    if (l=="\\N") {print "\n"; continue; }                                     #
+    if (l=="\\N") {print "\n";'"$awkfl"' continue; }                           #
     if (match(l,/^\\u00[0-7][0-9a-fA-F]/)) {                                   #
       print bhex2chr[tolower(substr(l,5,2))], substr(l,7);                     #
       continue;                                                                #

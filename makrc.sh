@@ -19,24 +19,28 @@
 #
 # === This Command will Do Like the Following Conversion ===
 # 1. Input Text (Line#-Field#-value Formatted Text)
-#    1 1 aaa
-#    1 2 b"bb
-#    1 3 c\ncc
-#    1 4 d d
-#    2 1 f,f
+#      1 1 aaa
+#      1 2 b"bb
+#      1 3 c\ncc
+#      1 4 d d
+#      2 1 f,f
+#    (" is the double quotation character.)
 # 2. Output Text This Command Generates (CSV : RFC 4180)
-#    aaa,"b""bb","c
-#    cc",d d
-#    "f,f"
+#      aaa,"b""bb","c
+#      cc",d d
+#      "f,f"
 #
 # === Usage ===
 # Usage   : makrc.sh [options] [Line#-Field#-value_textfile]
 # Options : -fs<s> Replaces the CSV field separator "," into <s>
 #           -lf    Doesn't convert LFs at the end of lines into CR+LFs
 #           -t     Doesn't quote with '"' or escape fields
+# Environs: LINE_BUFFERED
+#             =yes ........ Line-buffered mode if possible
+#             =forcible ... Line-buffered mode or exit if impossible
 # Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -51,12 +55,15 @@
 ######################################################################
 
 # === Initialize shell environment ===================================
-set -eu
+set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -65,8 +72,11 @@ print_usage_and_exit () {
 	Options : -fs<s> Replaces the CSV field separator "," into <s>
 	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
 	          -t     Doesn't quote with '"' or escape fields
+	Environs: LINE_BUFFERED
+	            =yes ........ Line-buffered mode if possible
+	            =forcible ... Line-buffered mode or exit if impossible
 	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
-	Version : 2020-05-06 22:42:19 JST
+	Version : 2022-02-04 18:23:47 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -134,9 +144,50 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 ######################################################################
 
 # === Define some chrs. to escape some special chrs. temporarily =====
-SO=$( printf '\016')               # Escape sign for \
-SI=$( printf '\017')               # Escape sign for <0x0A>
-LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
+s=$(printf '\016\017\\\n_')
+SO=${s%????}; s=${s#?} # Escape sign for \
+SI=${s%???} ; s=${s#?} # Escape sign for <0x0A>
+LFs=${s%?}             # <0x0A> for sed substitute chr.
+
+# === Switch to the line-buffered mode if required ===================
+awkfl=''
+case "${LINE_BUFFERED:-}" in
+             [Ff][Oo][Rr][Cc][EeIi]*|2) lbm=2;;
+  [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1) lbm=1;;
+                                     *) lbm=0;;
+esac
+case $lbm in [!0]*)
+  s=$(awk -W interactive 'BEGIN{}' 2>&1)
+  case "$?$s" in
+  '0') alias awk='awk -W interactive';;
+    *) awkfl='system("");'           ;;
+  esac
+  s="$(type stdbuf >/dev/null 2>&1 && echo "s")"
+  s="$(type ptw    >/dev/null 2>&1 && echo "p")$s"
+  if sed -u p </dev/null >/dev/null 2>&1; then
+    alias sed='sed -u'
+  else
+    case "$s $lbm" in
+      *s*)   alias sed='stdbuf -o L sed'                       ;;
+      *p*)   alias sed='ptw sed'                               ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  if echo 1 | grep -q --line-buffered ^ 2>/dev/null; then
+    alias grep='grep --line-buffered'
+  else
+    case "$s $lbm" in
+      *s*)   alias grep='stdbuf -o L grep'                     ;;
+      *p*)   alias grep='ptw grep'                             ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  case "$s $lbm" in
+    *s*)   alias cat='stdbuf -o L cat'                       ;;
+    *p*)   alias cat='ptw cat'                               ;;
+    *' 2') error_exit 1 'Line-buffered mode is not supported';;
+  esac
+;; esac
 
 
 ######################################################################
@@ -149,7 +200,7 @@ grep '' ${file:+"$file"}                                   |
 # === Transfer line and field numbers separator to "_" === #
 sed 's/ \{1,\}/_/'                                         |
 #                                                          #
-# === Escape "\n" and "\" as value ======================= #
+# === Escape "\n" and the backslash as value ============= #
 sed 's/\\\\/'"$SO"'/g'                                     |
 sed 's/\\n/'"$SI"'/g'                                      |
 #                                                          #
@@ -176,12 +227,12 @@ FLDSP="$optfs" awk '                                       #
       if (cr==r) {                                         #
         print_col();                                       #
       } else {                                             #
-        print "\n";                                        #
+        print "\n";'"$awkfl"'                              #
         r++;                                               #
         dlm="";                                            #
         c=1;                                               #
         if (cr>r) {                                        #
-          for (; r<cr; r++) {print "\"\"","\n";}           #
+          for(; r<cr; r++){print "\"\"","\n";'"$awkfl"'}   #
         }                                                  #
         print_col();                                       #
       }                                                    #
@@ -204,7 +255,7 @@ FLDSP="$optfs" awk '                                       #
     }                                                      #
   }'                                                       |
 #                                                          #
-# === Unescape the escaped <0x0A> and "\" ================ #
+# === Unescape the escaped <0x0A> and the backslash ====== #
 sed 's/'"$SO"'/\\/g'                                       |
 sed 's/'"$SI"'/'"$LFs"'/g'                                 |
 #                                                          #

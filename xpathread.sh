@@ -1,58 +1,116 @@
-#! /bin/sh
+#!/bin/sh
+
+######################################################################
 #
-# xpathread.sh
-#    XPath形式インデックス付きデータをタグ形式に変換する
-#    (例)
-#    /foo/bar/onamae かえる
-#    /foo/bar/nenrei 3
-#    /foo/bar 
-#    /foo/bar/onamae ひよこ
-#    /foo/bar/nenrei 1
-#    /foo/bar 
-#    /foo 
-#    ↓
-#    ★ xpath2tag.sh /foo/bar <上記データファイル> として実行すると...
-#    ↓
-#    onamae nenrei
-#    かえる 3
-#    ひよこ 1
-#    (備考)
-#    ・XMLデータは一旦parsrx.shに掛けることでXPath形式インデックス付きデータに
-#      になる
-#    ・JSONデータは一旦parsrj.shに--xpathオプション付きで掛けることでXPath形式
-#      インデックス付きデータになる
-#    ・処理対象データにおいて、対象となる階層名に、添字[n]が付いていてもよい。
-#      (上記の例では、最初の3行が /foo/bar[1]...、後の3行が/foo/bar[2]...、と
-#      なっていてもよい。)
+# XPATHREAD.SH
+#   Create a Subset Table from the XPath-value Formated Data File
+#
+# === What is This? ===
+# * The command "xpathread.sh /foo/bar (A) > (B)" converts the following
+#   data file (A) to the following space separated value data with a
+#   header (B)
+#   + (A) /foo/bar/name Frog
+#         /foo/bar/age 3
+#         /foo/bar 
+#         /foo/bar/name Chick
+#         /foo/bar/age 1
+#         /foo/bar 
+#         /foo 
+#   + (B) onamae nenrei
+#         Frog 3
+#         chick 1
+# * You cannot give this command a XML data directly. If you want, change
+#   the data format from XML to XPath-value with "parsrx.sh" command behind
+#   this command.
+#   + So if you want to convert the following XML data (X) to (B),
+#     type the following one-liner command
+#     - cat (X) | parsrx.sh | xpathread.sh /foo/bar
+#     - (X) <foo>
+#             <bar>
+#               <name>Frog</name><age>3</age>
+#             </bar>
+#             <bar>
+#               <name>Chick</name><age>1</age>
+#             </bar>
+#           </foo>
+# * The JSON parser "parsrj.sh" can also generate XPath-value from JSON
+#   data but it requires --xpath option. Therefore, you can use this command
+#   not only XML data files but also JSON files with the JSON parser command.
+#   + So if you want to convert the following JSON data (J) to (B),
+#     type the following one-liner command
+#     - cat (J) | parsrj.sh --xpath | xpathread.sh /foo/bar
+#     - (J) {"foo": 
+#                   {"bar": [
+#                            {"name":"Frog" , "age": 3},
+#                            {"name":"Chick", "age": 1}
+#                           ]
+#                   }
+#           }
+# * This command is tolerant of index numbers in XPath strings.
+#   e.g. "/foo/bar[1]", "/foo[1]/bar[2]"
+#   These all are regarded as "/foo/bar."
 #
 # Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
 # Options : -s is for setting the substitution of blank (default:"_")
-#         : -n is for setting the substitution of null (default:"@")
-#         : -p permits to add the properties of the tag to the table
+#           -n is for setting the substitution of null (default:"@")
+#           -p permits to add the properties of the tag to the table
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+#
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-01-23
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
 # By the way, We are fed up with the side effects which are brought
 # about by the major licenses.
+#
+######################################################################
 
 
+######################################################################
+# Initial configuration
+######################################################################
+
+# === Initialize shell environment ===================================
 set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
-# ===== 配列にlength()が使えない旧来のAWKであれば独自の関数を用いる ==
+# === Define the functions for printing usage and error message ======
+print_usage_and_exit () {
+  cat <<-USAGE 1>&2
+	Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
+	Options : -s is for setting the substitution of blank (default:"_")
+	          -n is for setting the substitution of null (default:"@")
+	          -p permits to add the properties of the tag to the table
+	Version : 2022-01-23 02:56:01 JST
+	          (POSIX Bourne Shell/POSIX commands)
+	USAGE
+  exit 1
+}
+error_exit() {
+  ${2+:} false && echo "${0##*/}: $2" 1>&2
+  exit $1
+}
+
+# === decide whether to use the alternative length of AWK or not =====
 if awk 'BEGIN{a[1]=1;b=length(a)}' 2>/dev/null; then
   arlen='length'
 else
   arlen='arlen'
 fi
 
-# ===== 引数を解析する ===============================================
+
+######################################################################
+# Prepare for the Main Routine
+######################################################################
+
+# === Parse arguments ================================================
 opts='_'
 optn='@'
 optp=''
@@ -141,18 +199,10 @@ case $# in [!0]*)
   ;;
 esac
 [ -n "$xpath"  ] || printhelp=1
-if [ $printhelp -ne 0 ]; then
-  cat <<-__USAGE 1>&2
-	Usage   : ${0##*/} [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
-	Options : -s is for setting the substitution of blank (default:"_")
-	        : -n is for setting the substitution of null (default:"@")
-	        : -p permits to add the properties of the tag to the table
-__USAGE
-  exit 1
-fi
+case $printhelp in [!0]*) print_usage_and_exit;; esac
 [ -z "$xpath_file" ] && xpath_file='-'
 
-# ===== テンポラリーファイルを確保する ===============================
+# === Prepare a temporary file =======================================
 which mktemp >/dev/null 2>&1 || {
   mktemp_fileno=0
   mktemp() {
@@ -168,15 +218,23 @@ tempfile=$(mktemp -t "${0##*/}.XXXXXXXX")
 if [ $? -eq 0 ]; then
   trap "rm -f $tempfile; exit" EXIT HUP INT QUIT ALRM SEGV TERM
 else
-  echo "${0##*/}: Can't create a temporary file" 1>&2
-  exit 1
+  error_exit 1 "Can't create a temporary file"
 fi
 
-# ===== 下記の前処理を施したテキストをテンポラリーファイルに書き出す =
-# ・指定されたパス自身とその子でない(=孫以降)の行は削除
-# ・指定されたパス自身の行は"/"として出力
-# ・第1列は子の名前のみとし、更に添字[n]があれば取り除く
-# ・第2列の空白を全て所定の文字に置き換える
+
+######################################################################
+# Main Routine (Convert and Generate)
+######################################################################
+
+# === Write the following pre-processed data into a temporary file ===
+# * Delete lines that their XPath match none of the following rules
+#   + Specified XPath
+#   + Chilren of the specified XPath
+# * Truncate the XPath string from the top to the specified hierarchy
+# * On the first field, cut any strings other than the child name and
+#   also cut any index numbers "[n]"
+# * On the second field and beyond, replace the blank character with
+#   the specified substituted character
 awk '
   BEGIN {
     xpath    = "'"$xpath"'";
@@ -186,6 +244,7 @@ awk '
       xpathlen--;
     }
     while (getline line) {
+      if (match(line,/^[^[:blank:]]+$/)) {line=line " ";}
       i = index(line, " ");
       f1 = substr(line, 1, i-1);
       if (substr(f1,1,xpathlen) != xpath) {
@@ -217,7 +276,7 @@ awk '
   }
 ' "$xpath_file" > "$tempfile"
 
-# ===== 対象タグ名の一覧をスペース区切りで列挙する ===================
+# === Enumerate the tag names separated by the space character =======
 tags=$(awk '                              \
          BEGIN {                          \
            OFS = "";                      \
@@ -246,30 +305,30 @@ tags=$(awk '                              \
          }                                \
        ' "$tempfile"                      )
 
-# ===== タグ表を生成する =============================================
+# === Generate the table =============================================
 awk -v tags="$tags" '
   # the alternative length function for array variable
   function arlen(ar,i,l){for(i in ar){l++;}return l;}
 
   BEGIN {
-    # タグ名と出現順序を登録
+    # Register the tagnames and the orders
     split(tags, order2tag);
     split(""  , tag2order);
     numoftags = '$arlen'(order2tag);
     for (i=1; i<=numoftags; i++) {
       tag2order[order2tag[i]] = i;
     }
-    # その他初期設定
+    # Initialize
     OFS = "";
     ORS = "";
     LF = sprintf("\n");
-    # 最初の行(タグ行)を出力
+    # Print the tag line
     print tags, LF;
-    # データ行を出力
+    # Print the body lines
     split("", fields);
     while (getline line) {
       if (line != "/") {
-        # a.通常の行(タグ名+値)なら値を保持
+        # a. Memorize the value if the line is regular one
         i = index(line, " ");
         f1 = substr(line, 1  , i-1);
         f2 = substr(line, i+1     );
@@ -277,7 +336,7 @@ awk -v tags="$tags" '
           fields[tag2order[f1]] = f2;
         }
       } else {
-        # b."/"行(一周した印)なら一行出力し、その行の保持データをクリア
+        # b. Flush the line if arrived at a record boundary
         if (numoftags >= 1) {
           print      (1 in fields) ? fields[1] : "'"$optn"'";
         }

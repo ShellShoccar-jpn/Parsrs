@@ -23,13 +23,14 @@
 #    "f<TAB>f"
 # 2. Output Text This Command Converts Into
 #    (in case which interprets '"' as the same meaning as RFC 4180 CSV)
-#    1 1 aaa         1 1 aaa
-#    1 2 "b""bb"     1 2 b"bb
-#    1 3 "c          1 3 c\ncc
-#    2 1 cc"         1 4 d d
-#    2 2 d d         2 1 f<TAB>f
-#    3 1 "f
-#    3 2 f"
+#      1 1 aaa         1 1 aaa
+#      1 2 "b""bb"     1 2 b"bb
+#      1 3 "c          1 3 c\ncc
+#      2 1 cc"         1 4 d d
+#      2 2 d d         2 1 f<TAB>f
+#      3 1 "f
+#      3 2 f"
+#    (" is the double quotation character.)
 #
 # === Usage ===
 # Usage   : parsrt.sh [options] [TSV_file]
@@ -38,9 +39,12 @@
 #               also replaces \ with \\.
 #               When this option is set, this command regards "-dq" option
 #               is also set.
+# Environs: LINE_BUFFERED
+#             =yes ........ Line-buffered mode if possible
+#             =forcible ... Line-buffered mode or exit if impossible
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-06
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -60,7 +64,10 @@ umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -71,7 +78,10 @@ print_usage_and_exit () {
 	              also replaces \ with \\.
 	              When this option is set, this command regards "-dq" option
 	              is also set.
-	Version : 2020-05-06 22:42:19 JST
+	Environs: LINE_BUFFERED
+	            =yes ........ Line-buffered mode if possible
+	            =forcible ... Line-buffered mode or exit if impossible
+	Version : 2022-02-06 13:11:28 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -139,13 +149,14 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 ######################################################################
 
 # === Define some chrs. to escape some special chrs. temporarily =====
-HT=$( printf '\011')               # TAB (field separator)
-SO=$( printf '\016')               # Escape sign for '""'
-SI=$( printf '\017')               # Escape sign for <0x0A> as a value
-RS=$( printf '\036')               # Sign for record separator of CSV
-US=$( printf '\037')               # Sign for field separator of CSV
-CR=$( printf '\015')               # Carridge Return
-LFs=$(printf '\\\n_');LFs=${LFs%_} # <0x0A> for sed substitute chr.
+s=$(printf '\t\016\017\036\037\r\\\n_')
+HT=${s%????????}; s=${s#?} # TAB (field separator)
+SO=${s%???????} ; s=${s#?} # Escape sign for '""'
+SI=${s%??????}  ; s=${s#?} # Escape sign for <0x0A> as a value
+RS=${s%?????}   ; s=${s#?} # Sign for record separator of CSV
+US=${s%????}    ; s=${s#?} # Sign for field separator of CSV
+CR=${s%???}     ; s=${s#?} # Carridge Return
+LFs=${s%?}                 # <0x0A> for sed substitute chr.
 
 
 ######################################################################
@@ -184,6 +195,52 @@ case $optdq in 0)
   exit
 ;; esac
 
+
+######################################################################
+# Switch to the line-buffered mode if required
+######################################################################
+awkfl=''
+case "${LINE_BUFFERED:-}" in
+             [Ff][Oo][Rr][Cc][EeIi]*|2) lbm=2;;
+  [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1) lbm=1;;
+                                     *) lbm=0;;
+esac
+case $lbm in [!0]*)
+  s=$(awk -W interactive 'BEGIN{}' 2>&1)
+  case "$?$s" in
+  '0') alias awk='awk -W interactive';;
+    *) awkfl='system("");'           ;;
+  esac
+  s="$(type stdbuf >/dev/null 2>&1 && echo "s")"
+  s="$(type ptw    >/dev/null 2>&1 && echo "p")$s"
+  if sed -u p </dev/null >/dev/null 2>&1; then
+    alias sed='sed -u'
+  else
+    case "$s $lbm" in
+      *s*)   alias sed='stdbuf -o L sed'                       ;;
+      *p*)   alias sed='ptw sed'                               ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  if echo 1 | grep -q --line-buffered ^ 2>/dev/null; then
+    alias grep='grep --line-buffered'
+  else
+    case "$s $lbm" in
+      *s*)   alias grep='stdbuf -o L grep'                     ;;
+      *p*)   alias grep='ptw grep'                             ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  case "$s $lbm" in
+    *s*)   alias cat='stdbuf -o L cat'
+           alias tr='stdbuf -o L tr'                         ;;
+    *p*)   alias cat='ptw cat'
+           alias tr='ptw tr'                                 ;;
+    *' 2') error_exit 1 'Line-buffered mode is not supported';;
+  esac
+;; esac
+
+
 ######################################################################
 # Main Routine (Convert and Generate) #1
 #  in case which '"' have the same meaning as RFC 4180 CSV
@@ -200,7 +257,7 @@ sed "s/$CR\$//"                                                       |
 sed 's/""/'$SO'/g'                                                    |
 #                                                                     #
 # === Convert <0x0A>s as value into "\n" ============================ #
-#     (It's possible to distinguish it from the ones as CSV record    #
+#     (It is possible to distinguish it from the ones as CSV record   #
 #      separator if the number of DQs in a line is an odd number.     #
 #      And mark the point with <SI> and join with it the next line.)  #
 awk '                                                                 #
@@ -210,7 +267,7 @@ awk '                                                                 #
       gsub(/[^"]/, "", s);                                            #
       if (((length(s)+cy) % 2) == 0) {                                #
         cy = 0;                                                       #
-        printf("%s\n", line);                                         #
+        printf("%s\n", line);'"$awkfl"'                               #
       } else {                                                        #
         cy = 1;                                                       #
         printf("%s'$SI'", line);                                      #
@@ -261,7 +318,7 @@ awk '                                                                 #
       } else if (line == "'$US'") {                                   #
         f++;                                                          #
       } else {                                                        #
-        printf("%d %d %s\n", l, f, line);                             #
+        printf("%d %d %s\n", l, f, line);'"$awkfl"'                   #
       }                                                               #
     }                                                                 #
   }                                                                   #

@@ -45,9 +45,12 @@
 #           -ls<s>  Replaces the suffix of array character "]" with <s>
 #           -fn<n>  Redefines the start number of arrays with <n>
 #           -li     Inserts another JSONPath line which has no value
+# Environs: LINE_BUFFERED
+#             =yes ........ Line-buffered mode if possible
+#             =forcible ... Line-buffered mode or exit if impossible
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-06
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -62,12 +65,15 @@
 ######################################################################
 
 # === Initialize shell environment ===================================
-set -eu
+set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
 # === Usage printing function ========================================
 print_usage_and_exit () {
@@ -87,7 +93,10 @@ Options : -t      Quotes a value at converting when the value is a string
           -ls<s>  Replaces the suffix of array character "]" with <s>
           -fn<n>  Redefines the start number of arrays with <n>
           -li     Inserts another JSONPath line which has no value
-Version : 2020-05-06 22:42:19 JST
+Environs: LINE_BUFFERED
+            =yes ........ Line-buffered mode if possible
+            =forcible ... Line-buffered mode or exit if impossible
+Version : 2022-02-06 01:34:22 JST
           (POSIX Bourne Shell/POSIX commands)
 USAGE
   exit 1
@@ -172,9 +181,11 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 ######################################################################
 
 # === Define some chrs. to escape some special chrs. temporarily =====
-HT=$( printf '\t'   )              # Means TAB
-DQ=$( printf '\026' )              # Use to escape doublequotation temporarily
-LFs=$(printf '\\\n_');LFs=${LFs%_} # Use as a "\n" in s-command of sed
+s=$(printf '\025\t\026\\\n_')
+NAK=${s%?????}; s=${s#?} # Escape character for the backslash
+HT=${s%????}  ; s=${s#?} # Means a TAB
+DQ=${s%???}   ; s=${s#?} # Use to escape double quotation temporarily
+LFs=${s%?}               # Use as a "\n" in s-command of sed
 
 # === Export the variables to use in the following last AWK script ===
 export sk
@@ -182,6 +193,46 @@ export rt
 export kd
 export lp
 export ls
+
+# === Switch to the line-buffered mode if required ===================
+awkfl=''
+case "${LINE_BUFFERED:-}" in
+             [Ff][Oo][Rr][Cc][EeIi]*|2) lbm=2;;
+  [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1) lbm=1;;
+                                     *) lbm=0;;
+esac
+case $lbm in [!0]*)
+  s=$(awk -W interactive 'BEGIN{}' 2>&1)
+  case "$?$s" in
+  '0') alias awk='awk -W interactive';;
+    *) awkfl='system("");'           ;;
+  esac
+  s="$(type stdbuf >/dev/null 2>&1 && echo "s")"
+  s="$(type ptw    >/dev/null 2>&1 && echo "p")$s"
+  if sed -u p </dev/null >/dev/null 2>&1; then
+    alias sed='sed -u'
+  else
+    case "$s $lbm" in
+      *s*)   alias sed='stdbuf -o L sed'                       ;;
+      *p*)   alias sed='ptw sed'                               ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  if echo 1 | grep -q --line-buffered ^ 2>/dev/null; then
+    alias grep='grep --line-buffered'
+  else
+    case "$s $lbm" in
+      *s*)   alias grep='stdbuf -o L grep'                     ;;
+      *p*)   alias grep='ptw grep'                             ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  case "$s $lbm" in
+    *s*)   alias cat='stdbuf -o L cat'                       ;;
+    *p*)   alias cat='ptw cat'                               ;;
+    *' 2') error_exit 1 'Line-buffered mode is not supported';;
+  esac
+;; esac
 
 
 ######################################################################
@@ -192,31 +243,29 @@ export ls
 cat ${file:+"$file"}                                                     |
 #                                                                        #
 # === Escape DQs and put each string between DQs into a sigle line ===== #
-tr -d '\n'  | # 1)convert each DQ to new "\n" instead of original "\n"s  |
-tr '"' '\n' | #                                                          |
-awk '         # 2)discriminate DQ as just a letter from DQ as a segment  #
+sed 's/\\\\/'"$NAK"'/g'                                                  |
+sed 's/\\"/'"$DQ"'/g'                                                    |
+awk '                                                                    #
 BEGIN {                                                                  #
   OFS=""; ORS="";                                                        #
+  f=0;                                                                   #
   while (getline line) {                                                 #
-    len = length(line);                                                  #
-    if        (substr(line,len)!="\\"               ) {                  #
-      print line,"\n";                                                   #
-    } else if (match(line,/^(\\\\)+$|[^\\](\\\\)+$/)) {                  #
-      print line,"\n";                                                   #
-    } else                                            {                  #
-      print substr(line,1,len-1),"'$DQ'";                                #
+    while (line!="") {                                                   #
+      p=index(line,"\"");                                                #
+      if (p==0) {print line; break;}                                     #
+      if (f==0) {                                                        #
+        print substr(line,1,p-1),"\n\"";'"$awkfl"'                       #
+        line=substr(line,p+1);                                           #
+        f=1;                                                             #
+      } else     {                                                       #
+        print substr(line,1,p  ),  "\n";'"$awkfl"'                       #
+        line=substr(line,p+1);                                           #
+        f=0;                                                             #
+      }                                                                  #
     }                                                                    #
   }                                                                      #
 }'                                                                       |
-awk '         # 3)restore DQ to the head and tail of lines               #
-BEGIN {       #   which have DQs at head and tail originally             #
-  OFS=""; even=0;                                                        #
-  while (getline line)                   {                               #
-    if (even==0) {print      line     ;}                                 #
-    else         {print "\"",line,"\"";}                                 #
-    even=1-even;                                                         #
-  }                                                                      #
-}'                                                                       |
+sed 's/'"$NAK"'/\\\\/g'                                                  |
 #                                                                        #
 # === Insert "\n" into the head and the tail of the lines which are ==== #
 #     not as just a value string                                         #
@@ -442,7 +491,7 @@ function print_path( i) {                                                #
       print key_delimit, keyname_stack[i];                               #
     }                                                                    #
   }                                                                      #
-  print "\n";                                                            #
+  print "\n";'"$awkfl"'                                                  #
 }                                                                        #
 function print_path_and_value(str ,i) {                                  #
   print root_symbol;                                                     #
@@ -453,6 +502,6 @@ function print_path_and_value(str ,i) {                                  #
       print key_delimit, keyname_stack[i];                               #
     }                                                                    #
   }                                                                      #
-  print " ", str, "\n";                                                  #
+  print " ", str, "\n";'"$awkfl"'                                        #
 }                                                                        #
 '

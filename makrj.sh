@@ -33,10 +33,13 @@
 #    }
 #
 # === Usage ===
-# Usage : makrj.sh [JSON-value_textfile]
+# Usage   : makrj.sh [JSON-value_textfile]
+# Environs: LINE_BUFFERED
+#             =yes ........ Line-buffered mode if possible
+#             =forcible ... Line-buffered mode or exit if impossible
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -51,19 +54,25 @@
 ######################################################################
 
 # === Initialize shell environment ===================================
-set -eu
+set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
 # === Define the functions for printing usage and error message ======
-print_usage_and_exit () {
+print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [JSONPath-value_textfile]
-	Version : 2020-05-06 22:42:19 JST
+	Version : 2022-02-04 18:33:13 JST
 	          (POSIX Bourne Shell/POSIX commands)
+	Environs: LINE_BUFFERED
+	            =yes ........ Line-buffered mode if possible
+	            =forcible ... Line-buffered mode or exit if impossible
 	USAGE
   exit 1
 }
@@ -115,11 +124,54 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 ######################################################################
 
 # === Define some chrs. to escape some special chrs. temporarily =====
-HT=$( printf '\t'  ) # Means TAB
-FS=$( printf '\034') # Use to divide JSONPath and value temporarily
-ACK=$(printf '\006') # Use to escape <0x20> temporarily
-NAK=$(printf '\025') # Use to escape TAB temporarily
-ETX=$(printf '\003') # Use to mark empty value
+s=$(printf '\t\034\006\025\003')
+HT=${s%????}; s=${s#?} # Means TAB
+FS=${s%???} ; s=${s#?} # Use to divide JSONPath and value temporarily
+ACK=${s%??} ; s=${s#?} # Use to escape <0x20> temporarily
+NAK=${s%?}             # Use to escape TAB temporarily
+ETX=${s#?}             # Use to mark empty value
+
+# === Switch to the line-buffered mode if required ===================
+awkfl=''
+case "${LINE_BUFFERED:-}" in
+             [Ff][Oo][Rr][Cc][EeIi]*|2) lbm=2;;
+  [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1) lbm=1;;
+                                     *) lbm=0;;
+esac
+case $lbm in [!0]*)
+  s=$(awk -W interactive 'BEGIN{}' 2>&1)
+  case "$?$s" in
+  '0') alias awk='awk -W interactive';;
+    *) awkfl='system("");'           ;;
+  esac
+  s="$(type stdbuf >/dev/null 2>&1 && echo "s")"
+  s="$(type ptw    >/dev/null 2>&1 && echo "p")$s"
+  if sed -u p </dev/null >/dev/null 2>&1; then
+    alias sed='sed -u'
+  else
+    case "$s $lbm" in
+      *s*)   alias sed='stdbuf -o L sed'                       ;;
+      *p*)   alias sed='ptw sed'                               ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  if echo 1 | grep -q --line-buffered ^ 2>/dev/null; then
+    alias grep='grep --line-buffered'
+  else
+    case "$s $lbm" in
+      *s*)   alias grep='stdbuf -o L grep'                     ;;
+      *p*)   alias grep='ptw grep'                             ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  case "$s $lbm" in
+    *s*)   alias cat='stdbuf -o L cat'
+           alias tr='stdbuf -o L tr'                         ;;
+    *p*)   alias cat='ptw cat'
+           alias tr='ptw tr'                                 ;;
+    *' 2') error_exit 1 'Line-buffered mode is not supported';;
+  esac
+;; esac
 
 
 ######################################################################
@@ -135,20 +187,20 @@ sed 's/ /'$FS'/'                                                               |
 tr  " $HT$FS" "$ACK$NAK "                                                      |
 #                                                                              #
 # === Normalize the value field depending on type ==============================
-awk '$2~/^".*"$/              {print $0             ;next;} #<-string          #
+awk '$2~/^".*"$/              {print $0;'"$awkfl"'   next;} #<-string          #
      $2~/^-?([1-9][0-9]*|0)(\.[0-9]+)?([Ee][+-][0-9]+)?$/ { #<-number          #
-                               print $0             ;next;}                    #
-     $2~/^(null|true|false)$/ {print $0             ;next;} #<-boolians        #
-     $2=="'$ETX'"             {print $0             ;next;} #<-empty-field     #
+                               print $0;'"$awkfl"'   next;}                    #
+     $2~/^(null|true|false)$/ {print $0;'"$awkfl"'   next;} #<-boolians        #
+     $2=="'$ETX'"             {print $0;'"$awkfl"'   next;} #<-empty-field     #
      {                         s=$2; gsub(/"/,"\\\"",s);    #<-non-quoted-str  #
-                               print $1,"\"" s "\"" ;next;}                  ' |
+                               print $1,"\"" s "\"";'"$awkfl"'next;}         ' |
 #                                                                              #
 # === Add the prefix of type (Hash or List array), and split into KEYs =========
 awk '{s=$1;                                                                    #
       gsub(/\./        ," H:"  ,s);                                            #
       gsub(/\[[0-9]+\]/," L:&" ,s);                                            #
       sub( /h:$/       ," H:{}",s);                                            #
-      print s,$2                  ;}'                                          |
+      print s,$2;'"$awkfl"'        }'                                          |
 #                                                                              #
 # === Cut the first KEY because every line also has it =========================
 sed 's/^\$ //'                                                                 |
@@ -218,6 +270,7 @@ awk '# --- initialize ------------------------------------------------         #
        if      (val        !="'$ETX'") {print s,val                  ;}        #
        else if ($curr_depth=="H:"    ) {print substr(s,1,length(s)-4);}        #
        else                            {print s                      ;}        #
+       '"$awkfl"'                                                              #
        #                                                                       #
        # 7) copy every KEY string to the last KEY variables                    #
        if     (curr_depth > last_depth) {                                      #

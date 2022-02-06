@@ -33,9 +33,13 @@
 #         : -n  Prints the array subscript number after the tag name
 #         : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 #               also will NOT replaces \ with \\.
+# Environs: LINE_BUFFERED
+#             =yes ........ Line-buffered mode if possible
+#             =forcible ... Line-buffered mode or exit if impossible
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
+#
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-06
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -50,22 +54,28 @@
 ######################################################################
 
 # === Initialize shell environment ===================================
-set -eu
+set -u
 umask 0022
 export LC_ALL=C
 export PATH="$(command -p getconf PATH 2>/dev/null)${PATH+:}${PATH-}"
 case $PATH in :*) PATH=${PATH#?};; esac
-export UNIX_STD=2003  # to make HP-UX conform to POSIX
+export POSIXLY_CORRECT=1 # to make GNU Coreutils conform to POSIX
+export UNIX_STD=2003     # to make HP-UX conform to POSIX
+IFS=' 	
+'
 
 # === Usage printing function ========================================
-print_usage_and_exit () {
+print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [XML_file]
 	Options : -c  Prints the child tags which are had by the parent tag
 	          -n  Prints the array subscript number after the tag name
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
-	Version : 2020-05-06 22:42:19 JST
+	Environs: LINE_BUFFERED
+	            =yes ........ Line-buffered mode if possible
+	            =forcible ... Line-buffered mode or exit if impossible
+	Version : 2022-02-06 12:45:01 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -137,22 +147,22 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 ######################################################################
 
 # === Define some chrs. to escape some special chrs. temporarily =====
-SCT=$(printf '\016') # タグ開始端(候補)エスケープ用文字
-ECT=$(printf '\017') # タグ終端(候補)エスケープ用文字
-PRO=$(printf '\020') # 属性行開始識別文字
-SCS=$(printf '\021') # 一重引用符開始端(候補)エスケープ用文字
-ECS=$(printf '\022') # 一重引用符終端(候補)エスケープ用文字
-SCD=$(printf '\023') # 二重引用符開始端(候補)エスケープ用文字
-ECD=$(printf '\024') # 二重引用符終端(候補)エスケープ用文字
-SPC=$(printf '\025') # 引用符内スペースのエスケープ用文字
-TAB=$(printf '\026') # 引用符内タブのエスケープ用文字
-GT=$( printf '\027') # 引用符内">"のエスケープ用文字
-LT=$( printf '\030') # 引用符内"<"のエスケープ用文字
-SLS=$(printf '\031') # 引用符内"/"のエスケープ用文字
-LF=$( printf '\177') # 改行(タグ内の引用符外は除く)のエスケープ用文字
-
-T=$( printf '\011')             # タブ(エスケープ用ではない)
-N=$( printf '\\\012_');N=${N%_} # sedコマンド用の改行(エスケープ用ではない)
+s=$(printf '\016\017\020\021\022\023\024\025\026\027\030\031\177\t\\\n_')
+SCT=${s%????????????????}; s=${s#?} # Escape chr. for "Start Candicate of Tag"
+ECT=${s%???????????????} ; s=${s#?} # Escape chr. for "End Candicate of Tag"
+PRO=${s%??????????????}  ; s=${s#?} # Identificator for XML property line
+SCS=${s%?????????????}   ; s=${s#?} # Escape chr. for "Start Candicate of '"
+ECS=${s%????????????}    ; s=${s#?} # Escape chr. for "End Candicate of '"
+SCD=${s%???????????}     ; s=${s#?} # Escape chr. for 'Start Candicate of "'
+ECD=${s%??????????}      ; s=${s#?} # Escape chr. for 'End Candicate of "'
+SPC=${s%?????????}       ; s=${s#?} # Escape chr. for "space chr. in quoted str"
+TAB=${s%????????}        ; s=${s#?} # Escape chr. for "tab chr. in quoted str"
+GT=${s%???????}          ; s=${s#?} # Escape chr. for '">" chr. in quoted str'
+LT=${s%??????}           ; s=${s#?} # Escape chr. for '"<" chr. in quoted str'
+SLS=${s%?????}           ; s=${s#?} # Escape chr. for '"/" chr. in quoted str'
+LF=${s%????}             ; s=${s#?} # Escape chr. for '"\n" chr. in quoted str'
+T=${s%???}               ; s=${s#?} # TAB chr.
+N=${s%?}                            # LF chr. for the sed command
 
 # === Check whether the AWK on this host support length() or not =====
 case "$(awk 'BEGIN{a[3]=3;a[4]=4;print length(a)}' 2>/dev/null)" in
@@ -160,74 +170,134 @@ case "$(awk 'BEGIN{a[3]=3;a[4]=4;print length(a)}' 2>/dev/null)" in
   *) arlen='arlen' ;; # use an equivalent original function if not supported
 esac
 
+# === Switch to the line-buffered mode if required ===================
+awkfl=''
+case "${LINE_BUFFERED:-}" in
+             [Ff][Oo][Rr][Cc][EeIi]*|2) lbm=2;;
+  [Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]|1) lbm=1;;
+                                     *) lbm=0;;
+esac
+case $lbm in [!0]*)
+  s=$(awk -W interactive 'BEGIN{}' 2>&1)
+  case "$?$s" in
+  '0') alias awk='awk -W interactive';;
+    *) awkfl='system("");'           ;;
+  esac
+  s="$(type stdbuf >/dev/null 2>&1 && echo "s")"
+  s="$(type ptw    >/dev/null 2>&1 && echo "p")$s"
+  if sed -u p </dev/null >/dev/null 2>&1; then
+    alias sed='sed -u'
+  else
+    case "$s $lbm" in
+      *s*)   alias sed='stdbuf -o L sed'                       ;;
+      *p*)   alias sed='ptw sed'                               ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  if echo 1 | grep -q --line-buffered ^ 2>/dev/null; then
+    alias grep='grep --line-buffered'
+  else
+    case "$s $lbm" in
+      *s*)   alias grep='stdbuf -o L grep'                     ;;
+      *p*)   alias grep='ptw grep'                             ;;
+      *' 2') error_exit 1 'Line-buffered mode is not supported';;
+    esac
+  fi
+  case "$s $lbm" in
+    *s*)   alias cat='stdbuf -o L cat'                       ;;
+    *p*)   alias cat='ptw cat'                               ;;
+    *' 2') error_exit 1 'Line-buffered mode is not supported';;
+  esac
+;; esac
+
 
 ######################################################################
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# === データの流し込み ======================================================= #
+# === Send the datafile into the pipeline ==================================== #
 grep '' ${file:+"$file"}                                                       |
 #                                                                              #
-# === タグ内の属性値に含まれるスペース,改行,"<",">"を全てエスケープする ====== #
-# 1)元あった改行に印をつける                                                   #
+# === Remove all comment strings (<!-- -->) ================================== #
+awk '                                                                          #
+  BEGIN {                                                                      #
+    OFS=""; ORS=""; f=0;                                                       #
+    while (getline line) {                                                     #
+      while (line != "") {                                                     #
+        if (f==0) { p=index(line,"<!--");                                      #
+          if (p==0) {print line; break;}                                       #
+          print substr(line,1,p-1); line=substr(line,p+4); f=1;                #
+        } else    { p=index(line,"-->" );                                      #
+          if (p==0) {break;}                                                   #
+                                    line=substr(line,p+3); f=0;                #
+        }                                                                      #
+      }                                                                        #
+      if (f==0) {print "\n";'"$awkfl"'}                                        #
+    }                                                                          #
+    if (f==1) {print "\n";}                                                    #
+  }                                                                            #
+'                                                                              |
+#                                                                              #
+# === Escape all chrs., " ", "\t", "<", and ">" in the tag string ============ #
+# 1) Mark behind the end of the line                                           #
 sed 's/$/'"$LF"'/'                                                             |
-# 2)一般タグ(それ以外も混ざる)の始まる前で改行                                 #
+# 2) Insert a LF before the ordinal tags                                       #
 sed 's/\(<[^'" $T"'!-.0-9;-@[-^`{-~][^'" $T"'!-,/;-@[-^`{-~]*\)/'"$N$SCT"'\1/g'|
-# 3)属性値開始括弧(それ以外も混ざる)手前で改行                                 #
+# 3) Also insert a LF before the beginning of the property strings             #
 sed 's/='"'"'/='"$N$SCS""'"'/g'                                                |
 sed 's/="/='"$N$SCD"'"/g'                                                      |
-# 4)属性値終了括弧(それ以外も混ざる)前で改行                                   #
+# 4) Also insert a LF behind the end of the property strings                   #
 sed 's/\([^'"$SCS$SCD"']\)'"'"'\(['" $T$LF"'/>]\)/\1'"$N$ECS""'"'\2/g'         |
 sed 's/\([^'"$SCS$SCD"']\)"\(['" $T$LF"'/>]\)/\1'"$N$ECD"'"\2/g'               |
 sed 's/^'"'"'\(['" $T$LF"'/>]\)/'"$ECS'"'\1/'                                  |
 sed 's/^"\(['" $T$LF"'/>]\)/'"$ECD"'"\1/'                                      |
 sed "s/^'$/$ECS'/"                                                             |
 sed 's/^"$/'"$ECD"'"/'                                                         |
-# 5)一般タグ(それ以外も混ざる)の終わる前で改行                                 #
+# 5) Also insert a LF behind the end of every ordinal tag                      #
 sed 's/>/'"$N$ECT"'>/g'                                                        |
-# 6)本処理(混ざりを取り除く)                                                   #
-#   ・タグ内の属性値区間のスペース,タブ,"<",">"をエスケープ                    #
-#   ・エスケープした改行でもタグ内かつ引用符外のものは半角スペースに変換       #
-#   ・一重引用符と二重引用符(値としてのものを除く)はここで除去                 #
+# 6) Main Process                                                              #
+#    * Escape all "\t", "<", ">", and " " chrs. in the property value strings  #
+#    * Replace all LFs with " " out of quotes and in the tags whenever escaped #
+#    * Remove all quotation marks (except as a part of values)                 #
 awk '                                                                          #
   BEGIN {                                                                      #
     OFS = "";                                                                  #
     ORS = "";                                                                  #
-    LF  = sprintf("\n");                                                       #
-    Sct = "'"$SCT"'"; # タグ開始端候補識別子として使う文字........残す         #
-    Ect = "'"$ECT"'"; # タグ終了端候補識別子として使う文字........残す         #
-    Scs = "'"$SCS"'"; # 一重引用符開始端候補識別子として使う文字..消す         #
-    Ecs = "'"$ECS"'"; # 一重引用符終了端候補識別子として使う文字..消す         #
-    Scd = "'"$SCD"'"; # 二重引用符開始端候補識別子として使う文字..消す         #
-    Ecd = "'"$ECD"'"; # 二重引用符終了端候補識別子として使う文字..消す         #
-    SPC = "'"$SPC"'"; # スペースをエスケープするための文字........これに置換   #
-    TAB = "'"$TAB"'"; # タブをエスケープするための文字............これに置換   #
-    SLS = "'"$SLS"'"; # /をエスケープするための文字...............これに置換   #
-    GT  = "'"$GT"'";  # >をエスケープするための文字(引用符内用)...これに置換   #
-    LT  = "'"$LT"'";  # <をエスケープするための文字(引用符内用)...これに置換   #
-    in_tag  =  0; # 今読み進めた最後の文字位置はタグ内か                       #
-    in_quot =  0; # 今読み進めた最後の文字位置は括弧内か(SQなら1,DQなら2)      #
+    LF  = "\n";                                                                #
+    Sct = "'"$SCT"'"; # Escape chr. for "Start Candicate of Tag"....keep       #
+    Ect = "'"$ECT"'"; # Escape chr. for "End Candicate of Tag"......keep       #
+    Scs = "'"$SCS"'"; # Escape chr. for "Start Candicate of 0x27"...delete     #
+    Ecs = "'"$ECS"'"; # Escape chr. for "End Candicate of 0x27".....delete     #
+    Scd = "'"$SCD"'"; # Escape chr. for "Start Candicate of 0x22"...delete     #
+    Ecd = "'"$ECD"'"; # Escape chr. for "End Candicate of 0x22".....delete     #
+    SPC = "'"$SPC"'"; # Escape chr. for "space chr. in quoted str"..replace    #
+    TAB = "'"$TAB"'"; # Escape chr. for "tab chr. in quoted str"....replace    #
+    SLS = "'"$SLS"'"; # Escape chr. for "/" chr. in quoted str......replace    #
+    GT  = "'"$GT"'";  # Escape chr. for ">" chr. in quoted str......replace    #
+    LT  = "'"$LT"'";  # Escape chr. for "<" chr. in quoted str......replace    #
+    in_tag  =  0; # A flag means that the reading pointer is in a tag          #
+    in_quot =  0; # A flag means that the reading pointer is in 0x27(1),0x22(2)#
     while (getline line) {                                                     #
       headofline = substr(line,1,1);                                           #
       if (in_tag == 0) {                                                       #
-        # 1.タグ外だった場合                                                   #
+        # 1. when the pointer is out of a tag                                  #
         if (       headofline == Sct) {                                        #
-          # 1-1.タグ開始端に来た場合                                           #
+          # 1-1. when the pointer reaches the start of a tab                   #
           in_tag = 1;                                                          #
           gsub(/'"$LF"'/, " ", line);                                          #
-          print LF, line;                                                      #
+          print LF, line;'"$awkfl"'                                            #
         } else {                                                               #
-          # 1-2.タグに来てない場合                                             #
+          # 1-2. when the pointer does not reaches a tag yet                   #
           print substr(line,2);                                                #
         }                                                                      #
       } else if (in_quot == 0) {                                               #
-        # 2.タグ内だけど引用符外だった場合                                     #
+        # 2. when the pointer is in a tag, but out of quotations               #
         if (       headofline == Ect) {                                        #
-          # 2-1.タグ終端に来た場合                                             #
+          # 2-1. when the pointer reaches the end of the tag                   #
           in_tag = 0;                                                          #
-          print line, LF;                                                      #
+          print line, LF;'"$awkfl"'                                            #
         } else if (headofline == Scs) {                                        #
-          # 2-2.一重引用符開始端に来た場合                                     #
+          # 2-2. when the pointer reaches a start of a single-quotation        #
           in_quot = 1;                                                         #
           gsub(/ / ,SPC, line);                                                #
           gsub(/\t/,TAB, line);                                                #
@@ -236,7 +306,7 @@ awk '                                                                          #
           gsub(/</ , LT, line);                                                #
           print substr(line,3);                                                #
         } else if (headofline == Scd) {                                        #
-          # 2-3.二重引用符開始端に来た場合                                     #
+          # 2-3. when the pointer reaches a start of a double-quotation        #
           in_quot = 2;                                                         #
           gsub(/ / ,SPC, line);                                                #
           gsub(/\t/,TAB, line);                                                #
@@ -245,19 +315,19 @@ awk '                                                                          #
           gsub(/</ , LT, line);                                                #
           print substr(line,3);                                                #
         } else {                                                               #
-          # 2-4.その他(タグ内で属性括弧外のまま)の場合                         #
+          # 2-4. other case (it is in a tag and also out of quotations         #
           gsub(/'"$LF"'/, " ", line);                                          #
           print substr(line,2);                                                #
         }                                                                      #
       } else if (in_quot == 1) {                                               #
-        # 3.一重引用符内だった場合                                             #
+        # 3. when the pointer is in single-quotations                          #
         if (       headofline == Ecs) {                                        #
-          # 3-1.一重引用符終端に来た場合                                       #
+          # 3-1. when the pointer reaches the end of the single-quotations     #
           in_quot = 0;                                                         #
           gsub(/'"$LF"'/, " ", line);                                          #
           print substr(line,3);                                                #
         } else {                                                               #
-          # 3-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   #
+          # 3-2. other case (at a start of tag, or other end of quotations)    #
           gsub(/ / ,SPC, line);                                                #
           gsub(/\t/,TAB, line);                                                #
           gsub(/\//,SLS, line);                                                #
@@ -266,14 +336,14 @@ awk '                                                                          #
           print line;                                                          #
         }                                                                      #
       } else {                                                                 #
-        # 4.二重引用符内だった場合                                             #
+        # 4. when the pointer is in double-quotations                          #
         if (       headofline == Ecd) {                                        #
-          # 4-1.二重引用符終端に来た場合                                       #
+          # 4-1. when the pointer reaches the end of the quotations            #
           in_quot = 0;                                                         #
           gsub(/'"$LF"'/, " ", line);                                          #
           print substr(line,3);                                                #
         } else {                                                               #
-          # 4-2.その他(タグ開始端や上記を除く引用符端....ここでは来ないはず)   #
+          # 4-2. other case (at a start of tag, or other end of quotations)    #
           gsub(/ / ,SPC, line);                                                #
           gsub(/\t/,TAB, line);                                                #
           gsub(/\//,SLS, line);                                                #
@@ -286,35 +356,28 @@ awk '                                                                          #
   }                                                                            #
 '                                                                              |
 #                                                                              #
-# === コメント(<!-- -->)を削除する =========================================== #
-tr -d '\n'                                                                     |
-sed 's/<!--/'"$N"'<!--'"$N"'/g'                                                |
-sed 's/-->/-->'"$N"'/g'                                                        |
-sed '/^<!--/,/-->$/d'                                                          |
-tr -d '\n'                                                                     |
-#                                                                              #
-# === タグ名行、属性行、タグ内文字列行の3種類に行を分離する ================== #
-# 1)タグ文字列部分を単独の行にする(同時に"<",">"はトル)                        #
+# === Separate the data into tagnames, properties, and other strings in a tag  #
+# 1)Make every tagname independent (and remove "<" and ">" at the same time)   #
 sed 's/'"$SCT"'<\([^'"$ECT"']*\)'"$ECT"'>/'"$N$SCT"'\1'"$N"'/g'                |
-# 2)タグの名称部分と各属性部分を1つ1つ個別の行にする                           #
-#   ・先頭にタグ行or属性行識別子をつけて                                       #
-#   ・属性行を先にし、タグ行は最後にする                                       #
+# 2)Separate the tagname part and each of its properties                       #
+#   * Attach an identifier at the beginning to indicate tag or property        #
+#   * Property lines are printed first, tagname line is last                   #
 awk '                                                                          #
   # the alternative length function for array variable                         #
   function arlen(ar,i,l){for(i in ar){l++;}return l;}                          #
                                                                                #
   BEGIN {                                                                      #
     OFS = "";                                                                  #
-    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..残す                       #
-    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..追加する                   #
+    Tag = "'"$SCT"'"; # Escape chr. for "Start Candicate of Tag"....keep       #
+    Pro = "'"$PRO"'"; # Escape chr. for "A Property line"...........add        #
     while (getline line) {                                                     #
       headofline = substr(line,1,1);                                           #
       if (headofline == Tag) {                                                 #
-        # 1.タグ行である場合....                                               #
+        # 1. When the line indicates a tagname                                 #
         split(line, items);                                                    #
         tagname = substr(items[1],2);                                          #
         sub(/\/$/, "", tagname);                                               #
-        # 1-1.単独タグかどうかを検出                                           #
+        # 1-1. Is the tag without the closing pair? (as in <br/>)              #
         i = '$arlen'(items);                                                   #
         if (match(items[i],/\/$/)) {                                           #
           singletag = 1;                                                       #
@@ -326,7 +389,7 @@ awk '                                                                          #
         } else {                                                               #
           singletag = 0;                                                       #
         }                                                                      #
-        # 1-2.各属性を各々単独の行として出力                                   #
+        # 1-2. Divide each property into individual lines                      #
         for (j=2; j<=i; j++) {                                                 #
           item = items[j];                                                     #
           if (match(item, /^[^=]+/)) {                                         #
@@ -334,65 +397,64 @@ awk '                                                                          #
             if (match(item, /^[^=]+["'"'"'].+["'"'"']$/)) {                    #
               k = length(proname);                                             #
               proval = substr(item,k+3,length(item)-k-3);                      #
-              print Pro, tagname, Pro, proname, " ", proval;                   #
+              print Pro, tagname, Pro, proname, " ", proval;'"$awkfl"'         #
             } else if (length(proname) == length(item)) {                      #
-              print Pro, tagname, Pro, proname, " ";                           #
+              print Pro, tagname, Pro, proname, " ";'"$awkfl"'                 #
             } else {                                                           #
               proval = substr(item,length(proname)+2);                         #
-              print Pro, tagname, Pro, proname, " ", proval;                   #
+              print Pro, tagname, Pro, proname, " ", proval;'"$awkfl"'         #
             }                                                                  #
           }                                                                    #
         }                                                                      #
-        # 1-3.タグ名を単独の行として出力                                       #
-        print Tag,      tagname;                                               #
-        # 1-4.単独タグだった場合は閉じタグ行を追加                             #
+        # 1-3. Print a tagname as an individual line                           #
+        print Tag,      tagname;'"$awkfl"'                                     #
+        # 1-4. Insert the closing tag line if the tag does not have the pair   #
         if (singletag) {                                                       #
-          print Tag, "//", tagname;  # (後で区別できるように"//"とする)        #
+          print Tag,"//",tagname;'"$awkfl"' # Mark with "//" for identification#
         }                                                                      #
       } else {                                                                 #
-        # 2.タグ行ではない場合....、そのまま出力                               #
-        print line;                                                            #
+        # 2. Pass through if the line is not a kind of tag                     #
+        print line;'"$awkfl"'                                                  #
       }                                                                        #
     }                                                                          #
   }                                                                            #
 '                                                                              |
-# === タグ,属性を絶対パス化し、タグ内文字列をタグの値として同行に記す ======== #
-# ・次のような形式になる(第1列はXPath形式)                                     #
+# === Express tags/properties in XPath and print its value after it ========== #
+# * XPath will be printed at the 1st field and its value will follow it        #
 #    /PATH/TO/TAG_NAME VALUE                                                   #
 #    /PATH/TO/TAG_NNAME/@PROPERTY_NAME VALUE                                   #
-# ・VALUEが空の場合でも手前に半角スペースが1個入る                             #
+# * The field separator " " is always put after XPath whenever the value is "" #
 awk '                                                                          #
   BEGIN {                                                                      #
     OFS = "";                                                                  #
     ORS = "";                                                                  #
-    LF  = sprintf("\n");                                                       #
-    Tag = "'"$SCT"'"; # タグ行識別子として使う文字..消す                       #
-    Pro = "'"$PRO"'"; # 属性行識別子として使う文字..消す                       #
-    split("", tagpath); # K:階層番号、V:パス名                                 #
-    split("", tagvals); # (a)K:階層深度 V:要素数、(b)K:深度,番号 V:文字列      #
-    split("", tagbros); # K:階層番号、V:"/所属タグの名前/名前/名前/…"         #
-    split("", tagrept); # K:"階層番号/タグ名"、V:出現回数                      #
-    currentdepth     =  0; # 現在いる階層の深度                                #
-    currentpathitems =  0; # 現在のフルパスが持っている文字列の個数            #
+    LF  = "\n";                                                                #
+    Tag = "'"$SCT"'"; # Escape chr. for "Start Candicate of Tag"....delete     #
+    Pro = "'"$PRO"'"; # Escape chr. for "A Property line"...........delete     #
+    split("", tagpath); # K:hierarchy-level, V:pathname                        #
+    split("", tagvals); # K:hierarchy-level, V:NumOfProperties/string          #
+    split("", tagbros); # K:hierarchy-level, V:XPath                           #
+    split("", tagrept); # K:"hierarchy-level/tagname", V:NumOfAppearances      #
+    currentdepth     =  0; # My current level                                  #
+    currentpathitems =  0; # Number of words that the current XPath has        #
     while (getline line) {                                                     #
       headofline = substr(line,1,1);                                           #
       if (       headofline == Tag) {                                          #
-        # 1.タグ行だった場合                                                   #
+        # 1. When it is a tag                                                  #
         if (substr(line,2,1) == "/") {                                         #
-          # 1-1.タグ終了行だった場合                                           #
-          #     現在の階層の値を付けながら値を表示                             #
-          #     一階層出る                                                     #
+          # 1-1. When it is a closing tag line,                                #
+          #      print its value with the XPath and return the parent level    #
           for (i=1; i<=currentdepth; i++) {                                    #
             s =  tagpath[i];                                                   #
             print "/", s;                                                      #
             '"$unoptn"'print "[", tagrept[i "/" s], "]";                       #
           }                                                                    #
-          if (substr(line,3,1) != "/") {print " ";} #←単独タグだった場合は、  #
-          for (i=1; i<=currentpathitems; i++) {     #  タグパスの後ろに        #
-            print  tagvals[currentdepth "," i];     #  " "をつけない。         #
+          if (substr(line,3,1) != "/") {print " ";} #<-If the tag is a single  #
+          for (i=1; i<=currentpathitems; i++) {     #  one, " " will not be    #
+            print  tagvals[currentdepth "," i];     #  added after the XPath   #
             delete tagvals[currentdepth "," i];                                #
           }                                                                    #
-          print LF;                                                            #
+          print LF;'"$awkfl"'                                                  #
           delete tagpath[currentdepth];                                        #
           '"$unoptn"'i = currentdepth + 1;                                     #
           '"$unoptn"'if (i in tagbros) {                                       #
@@ -406,8 +468,8 @@ awk '                                                                          #
           currentpathitems = tagvals[currentdepth];                            #
           delete tagvals[currentdepth];                                        #
         } else {                                                               #
-          # 1-2.タグ開始行だった場合                                           #
-          #     一階層入る                                                     #
+          # 1-2. When it is an opening tag,                                    #
+          #      enter the child hierarchy                                     #
           currenttagname = substr(line,2);                                     #
           '"$unoptc"'childtag = "<" currenttagname "/>";                       #
           '"$unoptc"'currentpathitems++;                                       #
@@ -430,7 +492,7 @@ awk '                                                                          #
           '"$unoptn"'}                                                         #
         }                                                                      #
       } else if (headofline == Pro) {                                          #
-        # 2.属性行だった場合                                                   #
+        # 2. When it is a property line                                        #
         for (i=1; i<=currentdepth; i++) {                                      #
           s =  tagpath[i];                                                     #
           print "/", s;                                                        #
@@ -446,10 +508,9 @@ awk '                                                                          #
         '"$unoptn"'} else {                                                    #
         '"$unoptn"'  print "[1]";                                              #
         '"$unoptn"'}                                                           #
-        print "/@", substr(s,i+1), LF;                                         #
+        print "/@", substr(s,i+1), LF;'"$awkfl"'                               #
       } else {                                                                 #
-        # 3.その他の行だった場合                                               #
-        #   現在の階層の値変数にその行を追加                                   #
+        # 3. When it is another type, add the string after the current variable#
         currentpathitems++;                                                    #
         tagvals[currentdepth "," currentpathitems] = line;                     #
       }                                                                        #
@@ -457,14 +518,14 @@ awk '                                                                          #
   }                                                                            #
 '                                                                              |
 #                                                                              #
-# === アンエスケープ ========================================================= #
-# 1)スペース,タブ,"<",">","/"を元に戻す                                        #
+# === Un-escape ============================================================== #
+# 1) Unescape " ", "\t", "<", ">", and "/"                                     #
 sed 's/'"$GT"'/>/g'                                                            |
 sed 's/'"$LT"'/</g'                                                            |
 sed 's/'"$SLS"'/\//g'                                                          |
 sed 's/'"$SPC"'/ /g'                                                           |
 sed 's/'"$TAB"'/'"$T"'/g'                                                      |
-# 2)エスケープ改行を、引数で指定された(あるいはデフォルトの)文字列に変換する   #
+# 2) Unespace the escaped LF and replace it with "\n" or specified chr.        #
 if [ "_$bsesc" != '_\\' ]; then                                                #
   sed 's/\\/'"$bsesc"'/g'                                                      #
 else                                                                           #
