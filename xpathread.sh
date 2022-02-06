@@ -56,7 +56,7 @@
 #           -p permits to add the properties of the tag to the table
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-01-23
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-07
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -88,7 +88,7 @@ print_usage_and_exit () {
 	Options : -s is for setting the substitution of blank (default:"_")
 	          -n is for setting the substitution of null (default:"@")
 	          -p permits to add the properties of the tag to the table
-	Version : 2022-01-23 02:56:01 JST
+	Version : 2022-02-07 00:30:38 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
   exit 1
@@ -119,12 +119,12 @@ xpath_file=''
 optmode=''
 i=0
 printhelp=0
-case $# in [!0]*)
+case $# in ([!0]*)
   for arg in ${1+"$@"}; do
     i=$((i+1))
-    if [ -z "$optmode" ]; then
+    case "${optmode}" in ('')
       case "$arg" in
-        -[sdnip]*)
+        (-[sdnip]*)
           ret=$(echo "_${arg#-}" |
                 awk '{
                   opts = "_";
@@ -149,32 +149,34 @@ case $# in [!0]*)
                 }')
           ret1=${ret%% *}
           ret2=${ret#* }
-          if [ "${ret1#*s}" != "$ret1" ]; then
+          case "${ret1}" in (*s*)
             opts=$ret2
-          fi
-          if [ "${ret1#*n}" != "$ret1" ]; then
-            if [ -n "$ret2" ]; then
+          esac
+          case "${ret1}" in (*n*)
+            case "${#ret2}" in ([!0]*)
               optn=$ret2
-            else
+            ;;(*)
               optmode='n'
-            fi
-          fi
-          if [ "${ret1#*p}" != "$ret1" ]; then
+            ;;esac
+          esac
+          case "${ret1}" in (*p*)
             optp='#'
-          fi
+          esac
           ;;
-        *)
-          if [ -z "$xpath" ]; then
+        (*)
+          case "${#xpath},${#xpath_file}" in (0,*)
             if [ $i -lt $(($#-1)) ]; then
               printhelp=1
               break
             fi
             xpath=$arg
-          elif [ -z "$xpath_file" ]; then
-            if [ $i -ne $# ]; then
+          ;;(*,0)
+            case $i in ($#)
+              :
+            ;;(*)
               printhelp=1
               break
-            fi
+            ;;esac
             if [ ! -f "$xpath_file"       ] &&
                [ ! -c "$xpath_file"       ] &&
                [ ! "_$xpath_file" != '_-' ]  ; then
@@ -182,25 +184,25 @@ case $# in [!0]*)
               break
             fi
             xpath_file=$arg
-          else
+          ;;(*)
             printhelp=1
             break
-          fi
+          ;;esac
           ;;
       esac
-    elif [ "$optmode" = 'n' ]; then
+    ;;(n)
       optn=$arg
       optmode=''
-    else
+    ;;(*)
       printhelp=1
       break
-    fi
+    ;;esac
   done
   ;;
 esac
-[ -n "$xpath"  ] || printhelp=1
-case $printhelp in [!0]*) print_usage_and_exit;; esac
-[ -z "$xpath_file" ] && xpath_file='-'
+case "${#xpath}"      in     0) printhelp=1         ;; esac
+case $printhelp       in [!0]*) print_usage_and_exit;; esac
+case "${#xpath_file}" in     0) xpath_file='-'      ;; esac
 
 # === Prepare a temporary file =======================================
 which mktemp >/dev/null 2>&1 || {
@@ -215,11 +217,9 @@ which mktemp >/dev/null 2>&1 || {
   }
 }
 tempfile=$(mktemp -t "${0##*/}.XXXXXXXX")
-if [ $? -eq 0 ]; then
-  trap "rm -f $tempfile; exit" EXIT HUP INT QUIT ALRM SEGV TERM
-else
-  error_exit 1 "Can't create a temporary file"
-fi
+case $? in 0) trap "rm -f $tempfile; exit" EXIT HUP INT QUIT ALRM SEGV TERM;;
+           *) error_exit 1 "Can't create a temporary file"                 ;;
+esac
 
 
 ######################################################################
