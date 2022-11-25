@@ -137,11 +137,11 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 
 # === Define some chrs. to escape some special chrs. temporarily =====
 s=$(printf '\016\017\036\037\\\n\t\r')
-SO=${s%???????}; $s=${s#?} # Escape sign for '""'
-SI=${s%??????} ; $s=${s#?} # Escape sign for <0x0A> as a value
-RS=${s%?????}  ; $s=${s#?} # Sign for record separator of CSV
-US=${s%????}   ; $s=${s#?} # Sign for field separator of CSV
-LFs=${s%??}    ; $s=${s#?} # <0x0A> for sed substitute chr.
+SO=${s%???????}; s=${s#?} # Escape sign for '""'
+SI=${s%??????} ; s=${s#?} # Escape sign for <0x0A> as a value
+RS=${s%?????}  ; s=${s#?} # Sign for record separator of CSV
+US=${s%????}   ; s=${s#?} # Sign for field separator of CSV
+LFs=${s%??}    ; s=${s#?} # <0x0A> for sed substitute chr.
 HT=${s%?}                  # TAB
 CR=${s#?}                  # Carridge Return
 
