@@ -38,7 +38,7 @@
 #             =forcible ... Line-buffered mode or exit if impossible
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-05
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-11-26
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -69,7 +69,7 @@ print_usage_and_exit () {
 	Usage   : ${0##*/} [-lf<s>] [CSV_file]
 	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	            also replaces \ with \\
-	Version : 2022-02-05 00:17:24 JST
+	Version : 2022-11-26 13:49:59 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
