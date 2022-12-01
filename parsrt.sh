@@ -37,8 +37,7 @@
 # Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
 #           -lf Replaces the newline sign "\n" with <s>. And in this mode,
 #               also replaces \ with \\.
-#               When this option is set, this command regards "-dq" option
-#               is also set.
+#               This option implies "-dq" option.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
 #             =forcible ... Line-buffered mode or exit if impossible
@@ -76,8 +75,7 @@ print_usage_and_exit () {
 	Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\.
-	              When this option is set, this command regards "-dq" option
-	              is also set.
+	              This option implies "-dq" option.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
 	            =forcible ... Line-buffered mode or exit if impossible
