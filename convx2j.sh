@@ -3,12 +3,12 @@
 ######################################################################
 #
 # CONVX2J.SH
-#   Converting From XPath-value To JSONPath-value
+#   Converts XPath-value To JSONPath-value
 #
 # === What is This? ===
 # * This command will probably be very useful to convert from XML to JSON!
-#   You can convert a lot of XML data into JSON data by passing it through
-#   the following one-liner.
+#   The following one-liner sequence of commands convert your XML file
+#   into JSON data:
 #     > cat hoge.xml | parsrx.sh -c -n | ${PATH+:}${PATH-} | makrj.sh
 # * But by the difference between XML and JSON, the lines of XPath-value
 #   which have child tags in its value will be ignored.
@@ -91,7 +91,7 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# ===  Open the data source and delete XPath lines which have child tags ==== #
+# ===  Open the data source and delete XPath lines with child tags ========== #
 grep -v '/>' ${file:+"$file"}                                                 |
 #                                                                             #
 # === Delete the top "/" ==================================================== #
