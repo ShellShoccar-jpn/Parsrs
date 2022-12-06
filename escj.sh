@@ -6,24 +6,25 @@
 #   A Unicode Escape Sequence Encoder for JSON
 #
 # === What is This? ===
-# * This command converts from UTF-8 strings to Unicode escape sequence.
-# * Acceptable fromats are the followings:
-#   - UTF-8 strings in value part of "JSONPath-value" format
+# * This command converts UTF-8 strings to Unicode escape sequence
+#   for some JSON parsers who don't accept raw non-ASCII characters.
+# * This program expects one of these formats as input:
+#   - "JSONPath-value" format with string values in raw UTF-8
 #     (This format is for parsrj.sh/makrj.sh commands.)
 #   - Plain UTF-8 strings
 #
 # === Usage ===
 # Usage   : escj.sh [-p|-j|-n|-q] [textfile]
-# Options : -p ... Regard the input text data as UTF-8 strings.
-#           -j ... Regard the input text data as JSONPath-value.
+# Options : -p ... Expects the input text data as UTF-8 strings.
+#           -j ... Expects the input text data as JSONPath-value.
 #                  (default)
-#           -n ... The same as the option -j
-#           -q ... Regard the input text data as JSONPath-value.
-#                  However, the value part is put with double-
-#                  quotation when the value is a string type.
+#           -n ... Equivalent to -j option.
+#           -q ... Expects the input text data as JSONPath-value.
+#                  Quotes string value with double-quotation to
+#                  clarify its type.
 # Environs: LINE_BUFFERED
-#             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =yes ........ Line-buffered mode if available
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
@@ -55,16 +56,16 @@ IFS='
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [-p|-j|-n|-q] [textfile]
-	Options : -p ... Regard the input text data as UTF-8 strings.
-	          -j ... Regard the input text data as JSONPath-value.
+	Options : -p ... Expects the input text data as UTF-8 strings.
+	          -j ... Expects the input text data as JSONPath-value.
 	                 (default)
-	          -n ... The same as the option -j
-	          -q ... Regard the input text data as JSONPath-value.
-	                 However, the value part is put with double-
-	                 quotation when the value is a string type.
+	          -n ... Equivalent to -j option.
+	          -q ... Expects the input text data as JSONPath-value.
+	                 Quotes string value with double-quotation to
+	                 clarify its type.
 	Environs: LINE_BUFFERED
-	            =yes ........ Line-buffered mode if possible
-	            =forcible ... Line-buffered mode or exit if impossible
+	            =yes ........ Line-buffered mode if available
+	            =forcible ... Force line-buffered mode. Exit if unavailable.
 	Version : 2022-02-04 19:29:07 JST
 	          (POSIX Bourne Shell/POSIX commands/UTF-8)
 	USAGE
@@ -80,7 +81,7 @@ error_exit() {
 # Prepare for the Main Routine
 ######################################################################
 
-# === Get the options and the filepath ===============================
+# === Get options and filepath =======================================
 #
 # --- initialize option parameters -----------------------------------
 mode=1 # 0:plain_UTF-8, 1:JSONPath-value, 2:quoted-JSONPath-value
@@ -152,13 +153,13 @@ case $lbm in [!0]*)
 # Main Routine (conversion)
 ######################################################################
 
-# === Open the file and Add the LF at the end of the data when mode0 ===== #
+# === Open the file and append an LF to plain UTF-8 file ================= #
 case $mode in                                                              #
   0) cat "$file"; echo;;                                                   #
   *) cat "$file"      ;;                                                   #
 esac                                                                       |
 #                                                                          #
-# === Open the files ===================================================== #
+# === Escape some characters ============================================= #
 awk 'BEGIN {                                                               #
        mode='$mode';                                                       #
        for (i=  1;i<128;i++) {c=sprintf("%c",i);esc[c]=c;         }        #
@@ -212,7 +213,8 @@ awk 'BEGIN {                                                               #
        if (mode==0) {printf("\n");}                                        #
      }'                                                                    |
 #                                                                          #
-# === Remove the LF character at the end of the data only when mode0 ===== #
+# === Remove the LF character at the end of output ======================= #
+#     if plain text was input                                              #
 case $mode in                                                              #
   0) sed '$s/\\n$//';;                                                     #
   *) cat            ;;                                                     #

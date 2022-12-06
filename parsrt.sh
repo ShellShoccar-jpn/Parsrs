@@ -35,8 +35,8 @@
 # === Usage ===
 # Usage   : parsrt.sh [options] [TSV_file]
 # Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
-#           -lf Replaces the newline sign "\n" with <s>. And in this mode,
-#               also replaces \ with \\.
+#           -lf Replaces the newline sign "\n" with <s>.
+#               This option disables replacing \ with \\.
 #               This option implies "-dq" option.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
@@ -73,8 +73,8 @@ print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [TSV_file]
 	Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
-	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
-	              also replaces \ with \\.
+	          -lf Replaces the newline sign "\\n" with <s>.
+	              This option disables replacing \\ with \\\\.
 	              This option implies "-dq" option.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible

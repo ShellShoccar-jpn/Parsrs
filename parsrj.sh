@@ -31,10 +31,10 @@
 #
 # === Usage ===
 # Usage   : parsrj.sh [options] [JSON_file]
-# Options : -t      Quotes a value at converting when the value is a string
+# Options : -t      Quotes string values to explicitize their type
 #         : -e      Escapes the following characters in impolite JSON key fields
 #                   (" ",<0x09>,".","[","]")
-#         : --xpath Use XPath instead of JSONPath when converting
+#         : --xpath Outputs in XPath format rather JSONPath
 #                   It is equivalent to using the following options
 #                   (-rt -kd/ -lp'[' -ls']' -fn1 -li)
 #          <<The following options are to arrange the JSONPath format>>
@@ -79,9 +79,10 @@ IFS='
 print_usage_and_exit () {
   cat <<USAGE 1>&2
 Usage   : ${0##*/} [options] [JSON_file]
-Options : -t      Quotes a value at converting when the value is a string
+Options : -t      Quotes string values to explicitize their type
           -e      Escapes the following characters in impolite JSON key fields
                   (" ",".","[","]")
+          --xpath Outputs in XPath format rather JSONPath
           --xpath Use XPath instead of JSONPath when converting
                   It is equivalent to using the following options
                   (-rt -kd/ -lp'[' -ls']' -fn1 -li)

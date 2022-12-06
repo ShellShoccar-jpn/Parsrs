@@ -3,8 +3,7 @@
 ######################################################################
 #
 # MAKRC.SH
-#   A CSV (RFC 4180) Generator Which Makes From "Line#-Field#-value"
-#   Formatted Text
+#   A CSV (RFC 4180) Generator From "Line#-Field#-value" Formatted Text
 #
 # === What is "Line#-Field#-value" Formatted Text? ===
 # 1. Format
@@ -32,13 +31,14 @@
 #
 # === Usage ===
 # Usage   : makrc.sh [options] [Line#-Field#-value_textfile]
-# Options : -fs<s> Replaces the CSV field separator "," into <s>
-#           -lf    Doesn't convert LFs at the end of lines into CR+LFs
-#           -t     Doesn't quote with '"' or escape fields
+# Options : -fs<s> Replaces the CSV field separator "," with <s>
+#           -lf    Ends every line with LFs rather than CR+LFs
+#           -t     Doesn't quote with '"' nor escape fields
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
 #             =forcible ... Line-buffered mode or exit if impossible
-# Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
+# Caution : Requires line# and field# to be sorted, i.e.
+#           use preprocessor "sort -k 1n,1 -k 2n,2"
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
 #
@@ -69,13 +69,14 @@ IFS='
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [Line#-Field#-value_textfile]
-	Options : -fs<s> Replaces the CSV field separator "," into <s>
-	          -lf    Doesn't convert LFs at the end of lines into CR+LFs
-	          -t     Doesn't quote with '"' or escape fields
+	Options : -fs<s> Replaces the CSV field separator "," with <s>
+	          -lf    Ends every line with LFs rather than CR+LFs
+	          -t     Doesn't quote with '"' nor escape fields
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
 	            =forcible ... Line-buffered mode or exit if impossible
-	Caution : Must be done "sort -k 1n,1 -k 2n,2" before using this command
+	Caution : Requires line# and field# to be sorted, i.e.
+	          use preprocessor "sort -k 1n,1 -k 2n,2"
 	Version : 2022-02-04 18:23:47 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
@@ -204,7 +205,7 @@ sed 's/ \{1,\}/_/'                                         |
 sed 's/\\\\/'"$SO"'/g'                                     |
 sed 's/\\n/'"$SI"'/g'                                      |
 #                                                          #
-# === Quote strings with '"' as necessary ================ #
+# === Quote strings with '"' as necessity ================ #
 case $optt in                                              #
   0) sed '/['"$SO$SI"',"]/{s/"/""/g;s/ \(.*\)$/ "\1"/;}';; #
   1) cat                                                ;; #

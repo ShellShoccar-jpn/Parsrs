@@ -3,7 +3,7 @@
 ######################################################################
 #
 # PARSRC.SH
-#   A CSV (RFC 4180) Parser Which Convert Into "Line#-Field#-value"
+#   A CSV (RFC 4180) Parser Who Converts to "Line#-Field#-value"
 #
 # === What is "Line#-Field#-value" Formatted Text? ===
 # 1. Format
@@ -31,8 +31,8 @@
 #
 # === Usage ===
 # Usage   : parsrc.sh [-lf<s>] [CSV_file]
-# Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
-#               also replaces \ with \\
+# Options : -lf Represent newline in value as <s> rather than "\n".
+#               This option disables replacing \ with \\.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
 #             =forcible ... Line-buffered mode or exit if impossible
@@ -67,8 +67,8 @@ IFS='
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [-lf<s>] [CSV_file]
-	Options : -lf Replaces the newline sign "\n" with <s>. And in this mode,
-	            also replaces \ with \\
+	Options : -lf Represents newline in value as <s> rather than "\\n".
+	              This option disables replacing \\ with \\\\
 	Version : 2022-11-26 13:49:59 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	Environs: LINE_BUFFERED

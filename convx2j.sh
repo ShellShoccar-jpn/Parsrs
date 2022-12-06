@@ -6,16 +6,19 @@
 #   Converts XPath-value To JSONPath-value
 #
 # === What is This? ===
-# * This command will probably be very useful to convert from XML to JSON!
-#   The following one-liner sequence of commands convert your XML file
-#   into JSON data:
-#     > cat hoge.xml | parsrx.sh -c -n | ${PATH+:}${PATH-} | makrj.sh
-# * But by the difference between XML and JSON, the lines of XPath-value
-#   which have child tags in its value will be ignored.
+# * This is a helper to convert XML to JSON, by converting XPath-value
+#   to JSONPath-value.
+#   Here is an example to convert an XML file into JSON data:
+#     > cat hoge.xml | parsrx.sh -c -n | convx2j.sh | makrj.sh
+# * This program requires the preprocessor "parsrx.sh -c -n", exactly,
+#   to convert XML data into XPath-value format with explicit child
+#   tags and numbered tags of whose parent is common.
+# * Values with child tags are discarded, due to the difference
+#   between XML and JSON.
 #
 #
 # === Usage ===
-# Usage: ${PATH+:}${PATH-} [XPath-value_textfile]
+# Usage: convx2j.sh [XPath-value_textfile]
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2020-05-06
@@ -91,7 +94,7 @@ case "$file" in ''|-|/*|./*|../*) :;; *) file="./$file";; esac
 # Main Routine (Convert and Generate)
 ######################################################################
 
-# ===  Open the data source and delete XPath lines with child tags ========== #
+# === Open XPath-value file and drop lines with value with child tags ======= #
 grep -v '/>' ${file:+"$file"}                                                 |
 #                                                                             #
 # === Delete the top "/" ==================================================== #
@@ -100,7 +103,7 @@ sed 's/^\///'                                                                 |
 # === Reverse line order ==================================================== #
 sed -n -e '1!G;h;$p'                                                          |
 #                                                                             #
-# === Remove every first suffix numbers ([1]) and convert into JSONPath-value #
+# === Remove every first suffix number ([1]) and convert into JSONPath-value  #
 awk '                                                                         #
 BEGIN {                                                                       #
   # --- 0) initialize ------------------------------------------------        #
@@ -108,7 +111,7 @@ BEGIN {                                                                       #
   odd=0;                                                                      #
   split("", name0, "/");                                                      #
   #                                                                           #
-  # --- 1) start of loop ---------------------------------------------        #
+  # --- 1) beginning of loop -----------------------------------------        #
   while (getline line) { odd=1-odd;                                           #
   #                                                                           #
   # --- 2) separate XPath-value into XPath and value -----------------        #
@@ -190,7 +193,7 @@ BEGIN {                                                                       #
   odd=0;                                                                      #
   split("", name0, "/");                                                      #
   #                                                                           #
-  # --- 1) start of loop ---------------------------------------------        #
+  # --- 1) beginning of loop -----------------------------------------        #
   while (getline line) { odd=1-odd;                                           #
   #                                                                           #
   # --- 2) separate XPath-value into XPath and value -----------------        #
