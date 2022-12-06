@@ -29,7 +29,7 @@
 #
 # === Usage ===
 # Usage   : parsrx.sh [options] [XML_file]
-# Options : -c  Prints the child tags explicitly in value
+# Options : -c  Prints the child tags in value explicitly
 #         : -n  Prints the array subscript number after the tag name
 #         : -lf Replaces the newline sign "\n" with <s>. And in this mode,
 #               also will NOT replaces \ with \\.
@@ -68,7 +68,7 @@ IFS='
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [XML_file]
-	Options : -c  Prints the child tags explicitly in value
+	Options : -c  Prints the child tags in value explicitly
 	          -n  Prints the array subscript number after the tag name
 	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
 	              also replaces \ with \\
