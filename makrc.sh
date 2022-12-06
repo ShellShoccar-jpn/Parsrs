@@ -31,12 +31,12 @@
 #
 # === Usage ===
 # Usage   : makrc.sh [options] [Line#-Field#-value_textfile]
-# Options : -fs<s> Replaces the CSV field separator "," with <s>
-#           -lf    Ends every line with LFs rather than CR+LFs
-#           -t     Doesn't quote with '"' nor escape fields
+# Options : -fs<s> Specify the CSV field separator (default: ",")
+#           -lf    Represent end of line with LFs rather than CR+LFs
+#           -t     Don't quote values with '"' nor escape fields
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 # Caution : Requires line# and field# to be sorted, i.e.
 #           use preprocessor "sort -k 1n,1 -k 2n,2"
 #
@@ -69,12 +69,12 @@ IFS='
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [Line#-Field#-value_textfile]
-	Options : -fs<s> Replaces the CSV field separator "," with <s>
-	          -lf    Ends every line with LFs rather than CR+LFs
-	          -t     Doesn't quote with '"' nor escape fields
+	Options : -fs<s> Specify the CSV field separator (default: ",")
+	          -lf    Represent end of line with LFs rather than CR+LFs
+	          -t     Don't quote values with '"' nor escape fields
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
-	            =forcible ... Line-buffered mode or exit if impossible
+	            =forcible ... Force line-buffered mode. Exit if unavailable.
 	Caution : Requires line# and field# to be sorted, i.e.
 	          use preprocessor "sort -k 1n,1 -k 2n,2"
 	Version : 2022-02-04 18:23:47 JST

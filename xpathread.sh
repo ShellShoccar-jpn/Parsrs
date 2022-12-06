@@ -46,9 +46,9 @@
 #   These all are equivalent to "/foo/bar".
 #
 # Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
-# Options : -s replaces blank characters in value with <str> (default:"_")
-#           -n represents null value with <str> (default:"@")
-#           -p permits to add the properties of the tag to the table
+# Options : -s replace blank characters in value with <str> (default:"_")
+#           -n represent null value with <str> (default:"@")
+#           -p add tag properties to the table
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-07
@@ -80,9 +80,9 @@ IFS='
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
-	Options : -s replaces blank characters in value with <str> (default:"_")
-	          -n replaces null value with <str> (default:"@")
-	          -p permits to add the properties of the tag to the table
+	Options : -s replace blank characters in value with <str> (default:"_")
+	          -n represent null value with <str> (default:"@")
+	          -p add tag properties to the table
 	Version : 2022-02-07 00:30:38 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE

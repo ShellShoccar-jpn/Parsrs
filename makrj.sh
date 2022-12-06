@@ -36,7 +36,7 @@
 # Usage   : makrj.sh [JSON-value_textfile]
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
@@ -72,7 +72,7 @@ print_usage_and_exit() {
 	          (POSIX Bourne Shell/POSIX commands)
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
-	            =forcible ... Line-buffered mode or exit if impossible
+	            =forcible ... Force line-buffered mode. Exit if unavailable.
 	USAGE
   exit 1
 }
