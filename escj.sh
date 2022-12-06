@@ -15,13 +15,12 @@
 #
 # === Usage ===
 # Usage   : escj.sh [-p|-j|-n|-q] [textfile]
-# Options : -p ... Expects the input text data as UTF-8 strings.
-#           -j ... Expects the input text data as JSONPath-value.
+# Options : -p ... Expect the input text data as UTF-8 strings.
+#           -j ... Expect the input text data as JSONPath-value.
 #                  (default)
 #           -n ... Equivalent to -j option.
-#           -q ... Expects the input text data as JSONPath-value.
-#                  Quotes string value with double-quotation to
-#                  clarify its type.
+#           -q ... Expect the input text data as JSONPath-value.
+#                  Quote string value with double-quotation explicitly.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if available
 #             =forcible ... Force line-buffered mode. Exit if unavailable.
@@ -56,13 +55,12 @@ IFS='
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [-p|-j|-n|-q] [textfile]
-	Options : -p ... Expects the input text data as UTF-8 strings.
-	          -j ... Expects the input text data as JSONPath-value.
+	Options : -p ... Expect the input text data as UTF-8 strings.
+	          -j ... Expect the input text data as JSONPath-value.
 	                 (default)
 	          -n ... Equivalent to -j option.
-	          -q ... Expects the input text data as JSONPath-value.
-	                 Quotes string value with double-quotation to
-	                 clarify its type.
+	          -q ... Expect the input text data as JSONPath-value.
+	                 Quotes string value with double-quotation explicitly.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if available
 	            =forcible ... Force line-buffered mode. Exit if unavailable.

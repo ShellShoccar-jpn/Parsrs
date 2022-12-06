@@ -16,7 +16,7 @@
 #
 # === Usage ===
 # Usage   : unescj.sh [-nuU] [JSONPath-value_textfile]
-# Options : -n ... Expects input format is JSONPath-value
+# Options : -n ... Expect input format is JSONPath-value
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
 #             =forcible ... Force line-buffered mode. Exit if unavailable.
@@ -51,9 +51,9 @@ IFS='
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [-nuU] [JSONPath-value_textfile]
-	Options : -n ... Expects input format is JSONPath-value
+	Options : -n ... Expect input format is JSONPath-value
 	          -u ... Line-buffered mode if possible
-	          -U ... Line-buffered mode or exit if impossible
+	          -U ... Force line-buffered mode. Exit if unavailable.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
 	            =forcible ... Force line-buffered mode. Exit if unavailable.
