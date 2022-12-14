@@ -6,21 +6,20 @@
 #   A Unicode Escape Sequence Decoder for JSON
 #
 # === What is This? ===
-# * This command converts Unicode escape sequence strings to UTF-8.
-# * But the command is a converter not for original JSONs but for
-#   beforehand extracted strings from JSONs.
-# * Basically, this command is for the text data (JSONPath-value) after
-#   converting by "parsrj.sh" command.
-# * When you convert JSONPath-value, you have to use "-n" option to
-#   avoid being broken as a JSONPath-value format by being inserted into
-#   <0x0A>s which has been converted from "\ux000a"s.
+# * This command converts Unicode escape sequence strings in JSON data
+#    to UTF-8 to make it easier to do something with it.
+# * This command expects either raw UTF-8 text or JSONPath-value to be
+#   input; thus preprocessor "parsrj.sh" is required for JSON.
+# * Use "-n" option to accept JSONPath-value so as to avoid the format
+#   being broken. The option suppress unescaping special characters such
+#   as <0x0A>: one of delimiters for the format.
 #
 # === Usage ===
 # Usage   : unescj.sh [-nuU] [JSONPath-value_textfile]
-# Options : -n ... Regard the data as JSONPath-value
+# Options : -n ... Expect input format is JSONPath-value
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
@@ -52,12 +51,12 @@ IFS='
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [-nuU] [JSONPath-value_textfile]
-	Options : -n ... Regard the data as JSONPath-value
+	Options : -n ... Expect input format is JSONPath-value
 	          -u ... Line-buffered mode if possible
-	          -U ... Line-buffered mode or exit if impossible
+	          -U ... Force line-buffered mode. Exit if unavailable.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
-	            =forcible ... Line-buffered mode or exit if impossible
+	            =forcible ... Force line-buffered mode. Exit if unavailable.
 	Version : 2022-02-04 19:28:27 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
@@ -163,17 +162,17 @@ case $lbm in [!0]*)
 # === Open the data source =================================================== #
 grep '' ${file:+"$file"}                                                       |
 #                                                                              #
-# === Escape "\\" to ACK temporarily ========================================= #
+# === Replace "\\" with ACK temporarily ====================================== #
 sed 's/\\\\/'"$ACK"'/g'                                                        |
 #                                                                              #
-# === Mark the original <0x0A> with <0x0A>+"\N" after it ===================== #
+# === Suffix "\N" to the original <0x0A> ===================================== #
 sed 's/$/'"$LFs"'\\N/'                                                         |
 #                                                                              #
-# === Insert <0x0A> into the behind of "\uXXXX" ============================== #
+# === Prefix <0x0A> before every "\uXXXX" ==================================== #
 sed 's/\(\\u[0-9A-Fa-f]\{4\}\)/'"$LFs"'\1/g'                                   |
 #                                                                              #
 # === Unescape "\uXXXX" into UTF-8 =========================================== #
-#     (But the following ones are transfer the following strings               #
+#     (Exceptions:                                                             #
 #      \u000a -> \n, \u000d -> \r, \u005c -> \\, \u0000 -> \0, \u0006 -> \A)   #
 awk '                                                                          #
 BEGIN {                                                                        #
@@ -235,7 +234,7 @@ BEGIN {                                                                        #
     print l;                                                                   #
   }                                                                            #
 }'                                                                             |
-# === Unsscape escaped strings except "\n", "\0" and "\\" ==================== #
+# === Unescape escaped strings except "\n", "\0" and "\\" ==================== #
 sed 's/\\"/"/g'                                                                |
 sed 's/\\\//\//g'                                                              |
 sed 's/\\b/'"$BS"'/g'                                                          |
@@ -248,7 +247,7 @@ case "$optn" in                                                                #
   0) sed 's/\\0//g'                             |  # - "\0" should be deleted  #
      sed 's/\\r/'"$CR"'/g'                      |  #   without conv to <0x00>  #
      sed 's/\\n/'"$LFs"'/g'                     |  #                           #
-     sed 's/'"$ACK"'/\\\\/g'                    |  # - Unescaoe escaped "\\"s  #
+     sed 's/'"$ACK"'/\\\\/g'                    |  # - Unescape escaped "\\"s  #
      sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |  #   and then restore "\A"s  #
      sed 's/\([^\\]\(\\\\\)*\)\\A/\1'"$ACK"'/g' |  #   to <ACK>s               #
      sed 's/^\(\(\\\\\)*\)\\A/\1'"$ACK"'/g'     |  #   :                       #

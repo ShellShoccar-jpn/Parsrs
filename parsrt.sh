@@ -34,14 +34,13 @@
 #
 # === Usage ===
 # Usage   : parsrt.sh [options] [TSV_file]
-# Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
-#           -lf Replaces the newline sign "\n" with <s>. And in this mode,
-#               also replaces \ with \\.
-#               When this option is set, this command regards "-dq" option
-#               is also set.
+# Options : -dq Interpret '"' as the same meaning as RFC 4180 CSV
+#           -lf Replace the newline sign "\n" with <s>.
+#               This option disables replacing \ with \\.
+#               This option implies "-dq" option.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-06
@@ -73,14 +72,13 @@ IFS='
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [TSV_file]
-	Options : -dq Interprets '"' as the same meaning as RFC 4180 CSV)
-	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
-	              also replaces \ with \\.
-	              When this option is set, this command regards "-dq" option
-	              is also set.
+	Options : -dq Interpret '"' as the same meaning as RFC 4180 CSV
+	          -lf Replace the newline sign "\\n" with <s>.
+	              This option disables replacing \\ with \\\\.
+	              This option implies "-dq" option.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
-	            =forcible ... Line-buffered mode or exit if impossible
+	            =forcible ... Force line-buffered mode. Exit if unavailable.
 	Version : 2022-02-06 13:11:28 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE

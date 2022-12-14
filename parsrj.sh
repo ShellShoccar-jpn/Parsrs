@@ -31,23 +31,23 @@
 #
 # === Usage ===
 # Usage   : parsrj.sh [options] [JSON_file]
-# Options : -t      Quotes a value at converting when the value is a string
-#         : -e      Escapes the following characters in impolite JSON key fields
+# Options : -t      Quote string values explicitly
+#         : -e      Escape the following characters in impolite JSON key fields
 #                   (" ",<0x09>,".","[","]")
-#         : --xpath Use XPath instead of JSONPath when converting
-#                   It is equivalent to using the following options
+#         : --xpath Output in XPath format rather JSONPath
+#                   It is equivalent to specifying the following option:
 #                   (-rt -kd/ -lp'[' -ls']' -fn1 -li)
-#          <<The following options are to arrange the JSONPath format>>
-#           -sk<s>  Replaces <0x20> chrs in key string with <s>
-#           -rt<s>  Replaces the root symbol "$" of JSONPath with <s>
-#           -kd<s>  Replaces the delimiter "." of JSONPath hierarchy with <s>
-#           -lp<s>  Replaces the prefix of array character "[" with <s>
-#           -ls<s>  Replaces the suffix of array character "]" with <s>
-#           -fn<n>  Redefines the start number of arrays with <n>
-#           -li     Inserts another JSONPath line which has no value
+#          <<The following options arrange the JSONPath format>>
+#           -sk<s>  Replace <0x20> chrs in key string with <s>
+#           -rt<s>  Replace the root symbol "$" of JSONPath with <s>
+#           -kd<s>  Replace the delimiter "." of JSONPath hierarchy with <s>
+#           -lp<s>  Replace the prefix of array character "[" with <s>
+#           -ls<s>  Replace the suffix of array character "]" with <s>
+#           -fn<n>  Redefine the start number of arrays with <n>
+#           -li     Insert another JSONPath line which has no value
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-06
@@ -79,23 +79,23 @@ IFS='
 print_usage_and_exit () {
   cat <<USAGE 1>&2
 Usage   : ${0##*/} [options] [JSON_file]
-Options : -t      Quotes a value at converting when the value is a string
-          -e      Escapes the following characters in impolite JSON key fields
+Options : -t      Quote string values explicitly
+          -e      Escape the following characters in impolite JSON key fields
                   (" ",".","[","]")
-          --xpath Use XPath instead of JSONPath when converting
-                  It is equivalent to using the following options
+          --xpath Output in XPath format rather JSONPath
+                  It is equivalent to specifying the following option:
                   (-rt -kd/ -lp'[' -ls']' -fn1 -li)
-         <<The following options are to arrange the JSONPath format>>
-          -sk<s>  Replaces <0x20> chrs in key string with <s>
-          -rt<s>  Replaces the root symbol "$" of JSONPath with <s>
-          -kd<s>  Replaces the delimiter "." of JSONPath hierarchy with <s>
-          -lp<s>  Replaces the prefix of array character "[" with <s>
-          -ls<s>  Replaces the suffix of array character "]" with <s>
-          -fn<n>  Redefines the start number of arrays with <n>
-          -li     Inserts another JSONPath line which has no value
+         <<The following options arrange the JSONPath format>>
+          -sk<s>  Replace <0x20> chrs in key string with <s>
+          -rt<s>  Replace the root symbol "$" of JSONPath with <s>
+          -kd<s>  Replace the delimiter "." of JSONPath hierarchy with <s>
+          -lp<s>  Replace the prefix of array character "[" with <s>
+          -ls<s>  Replace the suffix of array character "]" with <s>
+          -fn<n>  Redefine the start number of arrays with <n>
+          -li     Insert another JSONPath line which has no value
 Environs: LINE_BUFFERED
             =yes ........ Line-buffered mode if possible
-            =forcible ... Line-buffered mode or exit if impossible
+            =forcible ... Force line-buffered mode. Exit if unavailable.
 Version : 2022-02-06 01:34:22 JST
           (POSIX Bourne Shell/POSIX commands)
 USAGE

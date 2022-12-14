@@ -7,8 +7,8 @@
 #
 # === What is This? ===
 # * The command "xpathread.sh /foo/bar (A) > (B)" converts the following
-#   data file (A) to the following space separated value data with a
-#   header (B)
+#   data file (A) to obtain file (B), who has space separated value data
+#   with header.
 #   + (A) /foo/bar/name Frog
 #         /foo/bar/age 3
 #         /foo/bar 
@@ -16,14 +16,12 @@
 #         /foo/bar/age 1
 #         /foo/bar 
 #         /foo 
-#   + (B) onamae nenrei
+#   + (B) name age
 #         Frog 3
-#         chick 1
-# * You cannot give this command a XML data directly. If you want, change
-#   the data format from XML to XPath-value with "parsrx.sh" command behind
-#   this command.
-#   + So if you want to convert the following XML data (X) to (B),
-#     type the following one-liner command
+#         Chick 1
+# * This command requires a preprocessor "parsrx.sh" who converts XML
+#   data into XPath-value format.
+#   + Example to convert the XML file (X) to (B):
 #     - cat (X) | parsrx.sh | xpathread.sh /foo/bar
 #     - (X) <foo>
 #             <bar>
@@ -33,11 +31,8 @@
 #               <name>Chick</name><age>1</age>
 #             </bar>
 #           </foo>
-# * The JSON parser "parsrj.sh" can also generate XPath-value from JSON
-#   data but it requires --xpath option. Therefore, you can use this command
-#   not only XML data files but also JSON files with the JSON parser command.
-#   + So if you want to convert the following JSON data (J) to (B),
-#     type the following one-liner command
+# * JSON data can also be fed, with preprocessor "parsrj.sh --xpath".
+#   + Example to convert the JSON file (J) to (B):
 #     - cat (J) | parsrj.sh --xpath | xpathread.sh /foo/bar
 #     - (J) {"foo": 
 #                   {"bar": [
@@ -46,14 +41,14 @@
 #                           ]
 #                   }
 #           }
-# * This command is tolerant of index numbers in XPath strings.
+# * This command ignores index numbers in XPath strings.
 #   e.g. "/foo/bar[1]", "/foo[1]/bar[2]"
-#   These all are regarded as "/foo/bar."
+#   These all are equivalent to "/foo/bar".
 #
 # Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
-# Options : -s is for setting the substitution of blank (default:"_")
-#           -n is for setting the substitution of null (default:"@")
-#           -p permits to add the properties of the tag to the table
+# Options : -s replace blank characters in value with <str> (default:"_")
+#           -n represent null value with <str> (default:"@")
+#           -p add tag properties to the table
 #
 #
 # Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-07
@@ -85,9 +80,9 @@ IFS='
 print_usage_and_exit () {
   cat <<-USAGE 1>&2
 	Usage   : xpathread.sh [-s<str>] [-n<str>] [-p] <XPath> [XPath_indexed_data]
-	Options : -s is for setting the substitution of blank (default:"_")
-	          -n is for setting the substitution of null (default:"@")
-	          -p permits to add the properties of the tag to the table
+	Options : -s replace blank characters in value with <str> (default:"_")
+	          -n represent null value with <str> (default:"@")
+	          -p add tag properties to the table
 	Version : 2022-02-07 00:30:38 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE

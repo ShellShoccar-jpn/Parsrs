@@ -29,13 +29,13 @@
 #
 # === Usage ===
 # Usage   : parsrx.sh [options] [XML_file]
-# Options : -c  Prints the child tags which are had by the parent tag
-#         : -n  Prints the array subscript number after the tag name
-#         : -lf Replaces the newline sign "\n" with <s>. And in this mode,
-#               also will NOT replaces \ with \\.
+# Options : -c  Print the child tags in value explicitly
+#         : -n  Print the array subscript number after the tag name
+#         : -lf Replace the newline sign "\n" with <s>.
+#               This mode disables replacing \ with \\.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if possible
-#             =forcible ... Line-buffered mode or exit if impossible
+#             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
 #
@@ -68,13 +68,13 @@ IFS='
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
 	Usage   : ${0##*/} [options] [XML_file]
-	Options : -c  Prints the child tags which are had by the parent tag
-	          -n  Prints the array subscript number after the tag name
-	          -lf Replaces the newline sign "\n" with <s>. And in this mode,
-	              also replaces \ with \\
+	Options : -c  Print the child tags in value explicitly
+	          -n  Print the array subscript number after the tag name
+	          -lf Replace the newline sign "\n" with <s>. 
+	              This option disables replacing \\ with \\\\.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if possible
-	            =forcible ... Line-buffered mode or exit if impossible
+	            =forcible ... Force line-buffered mode. Exit if unavailable.
 	Version : 2022-02-06 12:45:01 JST
 	          (POSIX Bourne Shell/POSIX commands)
 	USAGE
