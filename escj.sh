@@ -7,11 +7,11 @@
 #
 # === What is This? ===
 # * This command converts UTF-8 strings to Unicode escape sequence
-#   for some JSON parsers who don't accept raw UTF-8 characters.
-# * This program expects one of these formats as input:
+#   for JSON parsers who doesn't accept raw UTF-8 characters.
+# * This program accepts one of these formats:
 #   - "JSONPath-value" format with string values in raw UTF-8
 #     (This format is for parsrj.sh/makrj.sh commands.)
-#   - Plain UTF-8 strings
+#   - Plain UTF-8 text
 #
 # === Usage ===
 # Usage   : escj.sh -p [textfile]
