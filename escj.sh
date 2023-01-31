@@ -7,20 +7,22 @@
 #
 # === What is This? ===
 # * This command converts UTF-8 strings to Unicode escape sequence
-#   for some JSON parsers who don't accept raw non-ASCII characters.
-# * This program expects one of these formats as input:
+#   for JSON parsers who doesn't accept raw UTF-8 characters.
+# * This program accepts one of these formats:
 #   - "JSONPath-value" format with string values in raw UTF-8
 #     (This format is for parsrj.sh/makrj.sh commands.)
-#   - Plain UTF-8 strings
+#   - Plain UTF-8 text
 #
 # === Usage ===
-# Usage   : escj.sh [-p|-j|-n|-q] [textfile]
-# Options : -p ... Expect the input text data as UTF-8 strings.
-#           -j ... Expect the input text data as JSONPath-value.
+# Usage   : escj.sh -p [textfile]
+#           escj.sh [-j|-n|-q] [JSONPath-value_file]
+# Options : -p ... Expect plain UTF-8 text.
+#           -j ... Expect JSONPath-value file, whose every string value
+#                  is not enclosed in double quotes.
 #                  (default)
 #           -n ... Equivalent to -j option.
-#           -q ... Expect the input text data as JSONPath-value.
-#                  Quote string value with double-quotation explicitly.
+#           -q ... Expect JSONPath-value file. Preserve presence of
+#                  double quotes for string values.
 # Environs: LINE_BUFFERED
 #             =yes ........ Line-buffered mode if available
 #             =forcible ... Force line-buffered mode. Exit if unavailable.
@@ -54,13 +56,15 @@ IFS='
 # === Define the functions for printing usage and error message ======
 print_usage_and_exit() {
   cat <<-USAGE 1>&2
-	Usage   : ${0##*/} [-p|-j|-n|-q] [textfile]
-	Options : -p ... Expect the input text data as UTF-8 strings.
-	          -j ... Expect the input text data as JSONPath-value.
+	Usage   : ${0##*/} -p [textfile]
+	          ${0##*/} [-j|-n|-q] [JSONPath-value_file]
+	Options : -p ... Expect plain UTF-8 text.
+	          -j ... Expect JSONPath-value file, whose every string value
+	                 is not enclosed in double quotes.
 	                 (default)
 	          -n ... Equivalent to -j option.
-	          -q ... Expect the input text data as JSONPath-value.
-	                 Quotes string value with double-quotation explicitly.
+	          -q ... Expect JSONPath-value file. Preserve presence of
+	                 double quotes for string values.
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if available
 	            =forcible ... Force line-buffered mode. Exit if unavailable.
