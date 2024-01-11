@@ -288,7 +288,7 @@ awk '                                                                          #
           print LF, line;'"$awkfl"'                                            #
         } else {                                                               #
           # 1-2. when the pointer does not reaches a tag yet                   #
-          print substr(line,2);                                                #
+          print substr(line,1);                                                #
         }                                                                      #
       } else if (in_quot == 0) {                                               #
         # 2. when the pointer is in a tag, but out of quotations               #
