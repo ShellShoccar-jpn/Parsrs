@@ -28,7 +28,7 @@
 #             =forcible ... Force line-buffered mode. Exit if unavailable.
 #
 #
-# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2022-02-04
+# Written by Shell-Shoccar Japan (@shellshoccarjpn) on 2026-06-19
 #
 # This is a public-domain software (CC0). It means that all of the
 # people can use this for any purposes with no restrictions at all.
@@ -68,7 +68,7 @@ print_usage_and_exit() {
 	Environs: LINE_BUFFERED
 	            =yes ........ Line-buffered mode if available
 	            =forcible ... Force line-buffered mode. Exit if unavailable.
-	Version : 2022-02-04 19:29:07 JST
+	Version : 2026-06-19 03:00:47 JST
 	          (POSIX Bourne Shell/POSIX commands/UTF-8)
 	USAGE
   exit 1
@@ -167,7 +167,7 @@ awk 'BEGIN {                                                               #
        for (i=  1;i<128;i++) {c=sprintf("%c",i);esc[c]=c;         }        #
        esc["\""  ]="\\\""; esc["\\"  ]="\\\\"; esc["/"   ]="\\/" ;         #
        esc["\010"]="\\b" ; esc["\014"]="\\f" ; esc["\012"]="\\n" ;         #
-       esc["\014"]="\\r" ; esc["\011"]="\\t" ;                             #
+       esc["\015"]="\\r" ; esc["\011"]="\\t" ;                             #
        if (mode!=0) {esc["\\"  ]="\\";}                                    #
        for (i=128;i<192;i++) {u0i[sprintf("%c",i)]= i-128        ;}        #
        for (i=192;i<224;i++) {u2i[sprintf("%c",i)]=(i-192)*    64;}        #
